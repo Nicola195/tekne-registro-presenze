@@ -19,7 +19,7 @@ lavorate per ciascuna utenza (anche **in contemporanea** / microgruppo), gestire
 - **React 18** + **TypeScript**
 - **Vite** (dev server e build)
 - **jsPDF** per la generazione dei report PDF
-- Nessun backend: persistenza su `localStorage`
+- **Supabase** (autenticazione + database Postgres con Row-Level Security)
 
 ---
 
@@ -53,16 +53,18 @@ Il contenuto di `dist/` è l'app statica pronta da pubblicare.
 
 ---
 
-## Profili di accesso (versione statica)
+## Profili di accesso
 
-Nella schermata iniziale si sceglie **"Accedi come"**:
+L'accesso avviene con **email e password** personali. Il ruolo dipende dal profilo
+collegato all'utente nel database (vedi `supabase/SETUP.md`):
 
 - **Operatore** — registra le proprie ore, consulta Riepilogo ed Estrazioni dei propri dati.
 - **Amministrazione** — anagrafiche utenze, operatori e ruoli, associazioni, tariffe;
   consultazione di tutti gli operatori; report per famiglia; sblocco dei giorni non lavorativi.
 
-> In questa versione non esiste una vera autenticazione: la scelta del profilo è solo
-> un filtro di comodo. Il login reale per ogni collega arriverà con Supabase.
+> L'accesso è su **invito**: l'amministrazione invita le colleghe da Supabase e ne collega
+> l'account all'operatrice. Le policy Row-Level Security garantiscono che ciascuna veda solo
+> i propri dati. Nessuna registrazione libera (dati di minori).
 
 ---
 

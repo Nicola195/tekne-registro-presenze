@@ -16,16 +16,17 @@ riservato (Row-Level Security). Dati di **minori**: scegliere la region **UE**.
 
 ## 2. Recuperare le chiavi
 
-1. **Project Settings → API**.
+1. **Project Settings → API Keys** (e **Data API** per l'URL).
 2. Copia:
    - **Project URL** → `VITE_SUPABASE_URL`
-   - **anon public** key → `VITE_SUPABASE_ANON_KEY`
+   - chiave **publishable** (`sb_publishable_...`) → `VITE_SUPABASE_PUBLISHABLE_KEY`
 3. Incolla i due valori:
    - nel file `.env` locale (vedi `.env.example`),
    - su Netlify: **Site settings → Environment variables** (stessi due nomi).
 
-> La chiave **anon public** è pubblica per natura: è sicura nel browser perché i dati
-> sono protetti dalle policy RLS. **NON** usare mai la chiave `service_role` nell'app.
+> La chiave **publishable** è pubblica per natura: è sicura nel browser perché i dati
+> sono protetti dalle policy RLS. **NON** usare mai la chiave **secret** (`sb_secret_...`)
+> nell'app né nel repository.
 
 ---
 

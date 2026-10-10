@@ -1,65 +1,70 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Session, Operator, Nominativo, extraFor } from './model';
-import { AppData, loadAll, readLocal, cacheLocal, saveBlock, saveOperators, saveNominativi, saveUnlocked, saveTariffe, blockOf, errMsg } from './store';
+import { Session, Operator, Nominativo, TariffaVoce, extraFor } from './model';
+import { AppData, loadAll, saveBlock, saveOperators, saveNominativi, saveUnlocked, saveTariffe, blockOf, errMsg } from './store';
 import { C, useWide } from './ui';
 import { DayView } from './components/DayView';
 import { SummaryView } from './components/SummaryView';
 import { ReportsView } from './components/ReportsView';
 import { AdminSettings } from './components/AdminSettings';
 import { PeriodState, initialPeriod, OperatorSelect } from './components/PeriodPicker';
-import { ADMIN_ID, Header, Footer, LoginView } from './components/Shell';
+import { Header, Footer } from './components/Shell';
+import { Login } from './components/Login';
+import { useAuth } from './auth';
+import { supabaseConfigured } from './supabase';
 
 type Tab = 'giorno' | 'riepilogo' | 'estrazioni' | 'impostazioni';
 type Sync = 'loading' | 'ok' | 'saving' | 'error';
 
-const PROFILE_KEY = 'registro-ore-profilo';
+const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const EMPTY: AppData = { operators: [], nominativi: [], sessions: [], unlocked: [], tariffe: [] };
+
+const Centered = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ minHeight: '100vh', background: C.bg, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font, padding: 24, textAlign: 'center' }}>{children}</div>
+);
 
 export const App = () => {
   const wide = useWide();
+  const auth = useAuth();
   const [tab, setTab] = useState<Tab>('giorno');
-  const [data, setData] = useState<AppData>({ operators: [], nominativi: [], sessions: [], unlocked: [], tariffe: [] });
+  const [data, setData] = useState<AppData>(EMPTY);
   const [loaded, setLoaded] = useState(false);
   const [, setSync] = useState<Sync>('loading');
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodState>(initialPeriod);
   const [viewOpId, setViewOpId] = useState('');
-  const [profile, setProfileState] = useState<string>(() => {
-    try { return localStorage.getItem(PROFILE_KEY) || ''; } catch { return ''; }
-  });
   const ref = useRef(data);
   ref.current = data;
 
+  const isAdmin = !!auth.profile?.isAdmin;
+  const ready = auth.phase === 'ready';
+
   const load = useCallback(async () => {
     setSync('loading'); setError(null);
-    const cached = readLocal();
-    if (cached) { setData(cached); setLoaded(true); }
     try {
-      const d = await loadAll();
+      const d = await loadAll({ isAdmin });
       setData(d); setLoaded(true); setSync('ok');
     } catch (e) {
-      setError(`Impossibile caricare i dati salvati: ${errMsg(e)}`); setSync('error');
+      setError(`Impossibile caricare i dati: ${errMsg(e)}`); setSync('error'); setLoaded(true);
     }
-  }, []);
+  }, [isAdmin]);
 
-  useEffect(() => { load(); }, [load]);
+  // Carica i dati solo quando l'utente è autenticato e col profilo pronto.
+  useEffect(() => {
+    if (ready) load();
+    else { setData(EMPTY); setLoaded(false); }
+  }, [ready, load]);
 
-  const isAdmin = profile === ADMIN_ID;
-  const me = data.operators.find((o) => o.id === profile);
-  const loggedIn = isAdmin || !!me;
-  // L'amministrazione non ha un operatore predefinito: va scelto esplicitamente.
+  // L'operatrice collegata al profilo (null per l'amministrazione).
+  const me = useMemo(
+    () => (auth.profile?.operatorId ? data.operators.find((o) => o.id === auth.profile!.operatorId) : undefined),
+    [data.operators, auth.profile?.operatorId],
+  );
+  // L'amministrazione sceglie quale operatore consultare; l'operatrice vede sé stessa.
   const viewOp: Operator | undefined = isAdmin ? data.operators.find((o) => o.id === viewOpId) : me;
 
-  const setProfile = (id: string) => {
-    setProfileState(id);
-    setTab(id === ADMIN_ID ? 'riepilogo' : 'giorno');
-    try {
-      if (id) localStorage.setItem(PROFILE_KEY, id);
-      else localStorage.removeItem(PROFILE_KEY);
-    } catch { /* ignora */ }
-  };
-  const logout = () => { if (window.confirm('Vuoi uscire dal profilo?')) setProfile(''); };
+  const logout = () => { if (window.confirm('Vuoi uscire?')) auth.signOut(); };
 
-  const update = (next: AppData) => { ref.current = next; setData(next); cacheLocal(next); };
+  const update = (next: AppData) => { ref.current = next; setData(next); };
 
   const persist = async (job: () => Promise<unknown>) => {
     setSync('saving');
@@ -72,7 +77,6 @@ export const App = () => {
     if (!me) return; // solo le operatrici inseriscono ore
     const prev = ref.current;
     const removed = prev.sessions.filter((s) => removeIds.includes(s.id));
-    // ogni registrazione appartiene all'operatrice collegata; extra = nominativi non associati a lei
     const stamped = add.map((s) => {
       const extra = extraFor(s.names, me.id, prev.nominativi);
       return { ...s, operatorId: me.id, extraNames: extra.length ? extra : undefined, coverOf: extra.length ? s.coverOf : undefined };
@@ -85,7 +89,7 @@ export const App = () => {
 
   const onOperators = (ops: Operator[]) => { update({ ...ref.current, operators: ops }); persist(() => saveOperators(ops)); };
   const onNominativi = (n: Nominativo[]) => { update({ ...ref.current, nominativi: n }); persist(() => saveNominativi(n)); };
-  const onTariffe = (t: import('./model').TariffaVoce[]) => { update({ ...ref.current, tariffe: t }); persist(() => saveTariffe(t)); };
+  const onTariffe = (t: TariffaVoce[]) => { update({ ...ref.current, tariffe: t }); persist(() => saveTariffe(t)); };
   const onToggleUnlock = (iso: string) => {
     const cur = ref.current.unlocked || [];
     const next = cur.includes(iso) ? cur.filter((d) => d !== iso) : [...cur, iso];
@@ -121,11 +125,22 @@ export const App = () => {
     );
   };
 
-  const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-  if (!loaded) {
-    return <div style={{ minHeight: '100vh', background: C.bg, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font }}>Caricamento dati…</div>;
+  // ---------- Stati non autenticati ----------
+  if (!supabaseConfigured) {
+    return (
+      <Centered>
+        <div style={{ maxWidth: 460 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.primary, marginBottom: 8 }}>Configurazione mancante</div>
+          <div style={{ lineHeight: 1.5 }}>
+            Mancano le variabili d'ambiente di Supabase. Definisci <b>VITE_SUPABASE_URL</b> e <b>VITE_SUPABASE_PUBLISHABLE_KEY</b> nel file <code>.env</code> (in locale) e nelle Environment variables di Netlify, poi ricarica.
+          </div>
+        </div>
+      </Centered>
+    );
   }
-  if (!loggedIn) return <LoginView operators={data.operators} onLogin={setProfile} />;
+  if (auth.phase === 'loading') return <Centered>Caricamento…</Centered>;
+  if (auth.phase !== 'ready') return <Login auth={auth} />;
+  if (!loaded) return <Centered>Caricamento dati…</Centered>;
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
@@ -137,7 +152,6 @@ export const App = () => {
             {error} <button onClick={load} style={{ marginLeft: 8, border: 'none', background: 'transparent', color: C.danger, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Riprova</button>
           </div>
         )}
-        {/* L'amministrazione sceglie l'operatore con una combolist; il Riepilogo ha la propria. */}
         {isAdmin && (t === 'giorno' || t === 'estrazioni') && (
           <OperatorSelect operators={data.operators} value={viewOpId} onChange={setViewOpId} />
         )}

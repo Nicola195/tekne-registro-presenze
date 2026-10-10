@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Registro ore e presenze — Centro Pedagogico TEKNE (versione statica di test, dati su localStorage).",
+  "description": "Registro ore e presenze — Centro Pedagogico TEKNE (login e database condivisi via Supabase).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
