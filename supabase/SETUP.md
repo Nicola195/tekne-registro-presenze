@@ -79,12 +79,44 @@ verificati di settembre 2026** (operatrice, nominativi, presenze 31/08–30/09).
 
    L'elenco degli `operator_id` è nella tabella `operators` (Table Editor).
 
-> In seguito possiamo aggiungere all'app una schermata di Amministrazione per gestire
-> inviti e collegamenti senza passare dall'SQL.
+> Dopo aver distribuito la Edge Function (passo 7) non serve più l'SQL: puoi creare
+> operatori e accessi direttamente da **Impostazioni → Accessi** nell'app.
 
 ---
 
-## 7. Collaudo
+## 7. Gestione accessi dall'app (Edge Function `admin-users`)
+
+La sezione **Impostazioni → Accessi** consente all'amministrazione di creare utenti
+(email + password temporanea), reimpostare password e nominare amministratori senza SQL.
+Creare utenti richiede la chiave **secret** (`service_role`), che **non può stare nel
+browser**: resta quindi in una Edge Function lato server.
+
+### Distribuzione (una volta sola)
+
+Serve la [Supabase CLI](https://supabase.com/docs/guides/cli). Dalla cartella del progetto:
+
+```bash
+# 1. Login e collegamento al progetto (project-ref: Settings → General)
+supabase login
+supabase link --project-ref <PROJECT_REF>
+
+# 2. Distribuzione della funzione
+supabase functions deploy admin-users
+```
+
+> La funzione usa `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`,
+> che Supabase inietta **automaticamente** nelle Edge Function: non devi impostare alcun
+> secret manualmente. La `service_role` non lascia mai i server di Supabase.
+
+### Verifica
+
+Accedi come amministrazione → **Impostazioni → Accessi**: se l'elenco si carica, la
+funzione risponde. Se vedi un errore di rete, controlla che la funzione risulti
+**deployed** in **Edge Functions** sul dashboard.
+
+---
+
+## 8. Collaudo
 
 1. In locale: `npm run dev`, accedi con l'account Amministrazione → compaiono i dati di settembre.
 2. Accedi con un account operatrice → vede **solo** le proprie ore.
@@ -96,5 +128,6 @@ verificati di settembre 2026** (operatrice, nominativi, presenze 31/08–30/09).
 
 - Region **UE (Frankfurt)**.
 - Accesso **solo su invito**.
-- Solo chiave **anon public** nell'app (mai `service_role`).
+- Solo chiave **publishable** nell'app (mai la **secret** / `service_role`).
+- La chiave **secret** vive solo nella Edge Function (lato server Supabase).
 - Le policy RLS garantiscono: operatrice = solo i propri dati; amministrazione = tutto.

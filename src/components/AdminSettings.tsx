@@ -3,6 +3,7 @@ import { Session, Operator, Nominativo, Ruolo, RUOLI, TariffaVoce, fmtH, round2,
 import { C, S, chip, useWide } from '../ui';
 import { NominativoEditor } from './NominativoEditor';
 import { seg } from './PeriodPicker';
+import { AccessiView } from './AccessiView';
 
 interface Props {
   operators: Operator[];
@@ -14,7 +15,7 @@ interface Props {
   onTariffe: (t: TariffaVoce[]) => void;
 }
 
-type Sub = 'utenze' | 'operatori' | 'associazioni' | 'tariffe';
+type Sub = 'utenze' | 'operatori' | 'associazioni' | 'tariffe' | 'accessi';
 
 export function AdminSettings({ operators, nominativi, sessions, tariffe, onOperators, onNominativi, onTariffe }: Props) {
   const wide = useWide();
@@ -105,7 +106,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
     </select>
   );
 
-  const subTabs: [Sub, string][] = [['utenze', `Utenze (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`], ['associazioni', 'Associazioni'], ['tariffe', `Tariffe (${tariffe.length})`]];
+  const subTabs: [Sub, string][] = [['utenze', `Utenze (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`], ['associazioni', 'Associazioni'], ['tariffe', `Tariffe (${tariffe.length})`], ['accessi', 'Accessi']];
 
   // ---------- UTENZE ----------
   const utenzeView = (
@@ -236,6 +237,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
       {sub === 'operatori' && operatoriView}
       {sub === 'associazioni' && assocView}
       {sub === 'tariffe' && tariffeView}
+      {sub === 'accessi' && <AccessiView operators={operators} onOperators={onOperators} />}
 
       {editing && (
         <NominativoEditor
@@ -243,6 +245,12 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
           esistenti={nominativi.map((n) => n.name)}
           onClose={() => setEditing(null)}
           onSave={saveNom}
+        />
+      )}
+    </div>
+  );
+}
+{saveNom}
         />
       )}
     </div>
