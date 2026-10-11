@@ -97,7 +97,7 @@ const rowToNominativo = (r: Row): Nominativo => ({
   note: (r.note as string) || undefined,
 });
 
-const operatorToRow = (o: Operator): Row => ({ id: o.id, name: o.name, ruolo: o.ruolo });
+const operatorToRow = (o: Operator): Row => ({ id: o.id, name: o.name, ruolo: o.ruolo, giorni: o.giorni ?? null });
 
 // ---------- Salvataggi ----------
 
@@ -156,7 +156,7 @@ export async function loadAll(_ctx: { isAdmin: boolean }): Promise<AppData> {
   ]);
   const err = opsRes.error || nomRes.error || sesRes.error || cfgRes.error;
   if (err) throw err;
-  const operators = normOperators((opsRes.data || []).map((o) => ({ id: o.id, name: o.name, ruolo: o.ruolo })));
+  const operators = normOperators((opsRes.data || []).map((o) => ({ id: o.id, name: o.name, ruolo: o.ruolo, giorni: o.giorni })));
   const nominativi = (nomRes.data || []).map(rowToNominativo);
   const sessions = (sesRes.data || []).map(rowToSession);
   const cfg = Object.fromEntries((cfgRes.data || []).map((r) => [r.key as string, r.value]));

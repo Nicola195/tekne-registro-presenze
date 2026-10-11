@@ -13,6 +13,8 @@ import { Login } from './components/Login';
 import { ModePicker, ListPicker, Ctx } from './components/ContextPicker';
 import { ContextCard } from './components/ContextCard';
 import { IconEye, IconPencil, IconChart, IconDownload, IconProps } from './components/Icons';
+import { giorniMancanti, operatoriConMancanti } from './pregresse';
+import { BellButton, NotifOperatore, NotifAmministrazione } from './components/Notifiche';
 import { useAuth } from './auth';
 import { supabaseConfigured } from './supabase';
 
@@ -40,6 +42,8 @@ export const App = () => {
   const [mode, setMode] = useState<Ctx | null>(null);
   const [sel, setSel] = useState<string>('');
   const [tab, setTab] = useState<Tab>('riepilogo');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifAuto = useRef(false);
 
   const ref = useRef(data);
   ref.current = data;
@@ -67,6 +71,19 @@ export const App = () => {
     () => (auth.profile?.operatorId ? data.operators.find((o) => o.id === auth.profile!.operatorId) : undefined),
     [data.operators, auth.profile?.operatorId],
   );
+
+  // Promemoria giornate pregresse non registrate.
+  const mancantiMie = useMemo(() => (!isAdmin && me ? giorniMancanti(data.sessions, me) : []), [isAdmin, me, data.sessions]);
+  const mancantiAdmin = useMemo(() => (isAdmin ? operatoriConMancanti(data.sessions, data.operators) : []), [isAdmin, data.sessions, data.operators]);
+  const notifCount = isAdmin ? mancantiAdmin.length : mancantiMie.length;
+
+  // Apre la dialog promemoria una sola volta per sessione, dopo il caricamento.
+  useEffect(() => {
+    if (ready && loaded && !notifAuto.current) {
+      notifAuto.current = true;
+      if (notifCount > 0) setNotifOpen(true);
+    }
+  }, [ready, loaded, notifCount]);
 
   // Contesto effettivo: gli operatori sono sempre in modalità "operatore" su sé stessi.
   const effMode: Ctx | null = isAdmin ? mode : 'operatore';
@@ -141,6 +158,13 @@ export const App = () => {
     );
   };
 
+  const bell = <BellButton count={notifCount} onClick={() => setNotifOpen(true)} />;
+  const notifDialog = notifOpen
+    ? isAdmin
+      ? <NotifAmministrazione lista={mancantiAdmin} onClose={() => setNotifOpen(false)} />
+      : <NotifOperatore giorni={mancantiMie} onClose={() => setNotifOpen(false)} onApri={(d) => { setNotifOpen(false); openDay(d); }} />
+    : null;
+
   // ---------- Stati non autenticati ----------
   if (!supabaseConfigured) {
     return (
@@ -162,23 +186,25 @@ export const App = () => {
   if (isAdmin && mode === null) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
-        <Header wide={wide} onLogout={logout} />
+        <Header wide={wide} onLogout={logout} notif={bell} />
         <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 32px', boxSizing: 'border-box' }}>
           {error && <div style={{ background: C.dangerSoft, color: C.danger, borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 14 }}>{error}</div>}
           <ModePicker operators={data.operators} nominativi={data.nominativi} onChoose={chooseMode} />
         </main>
         <Footer wide={wide} />
+        {notifDialog}
       </div>
     );
   }
   if (isAdmin && (mode === 'operatore' || mode === 'utenza') && !sel) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
-        <Header wide={wide} onLogout={logout} onSwitchMode={switchMode} />
+        <Header wide={wide} onLogout={logout} onSwitchMode={switchMode} notif={bell} />
         <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 32px', boxSizing: 'border-box' }}>
           <ListPicker kind={mode} operators={data.operators} nominativi={data.nominativi} onPick={chooseSel} onBack={switchMode} />
         </main>
         <Footer wide={wide} />
+        {notifDialog}
       </div>
     );
   }
@@ -195,7 +221,7 @@ export const App = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
-      <Header wide={wide} nav={tabs.map(([k, i, l]) => navBtn(k, i, l))} onLogout={logout} onSwitchMode={isAdmin ? switchMode : undefined} />
+      <Header wide={wide} nav={tabs.map(([k, i, l]) => navBtn(k, i, l))} onLogout={logout} onSwitchMode={isAdmin ? switchMode : undefined} notif={bell} />
 
       <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 90px', boxSizing: 'border-box' }}>
         {error && (
@@ -264,6 +290,7 @@ export const App = () => {
           {tabs.map(([k, i, l]) => navBtn(k, i, l))}
         </nav>
       )}
+      {notifDialog}
     </div>
   );
 };

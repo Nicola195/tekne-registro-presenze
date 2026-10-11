@@ -12,8 +12,12 @@
 create table if not exists public.operators (
   id    text primary key,              -- id stabile (es. 'op-tatulli'), usato in sessions.operator_id
   name  text not null,
-  ruolo text not null default 'Educatrice'
+  ruolo text not null default 'Educatrice',
+  giorni int[]                          -- giorni lavorati (0=Dom..6=Sab); null = default Lun–Ven
 );
+
+-- Se la tabella operators esisteva già da una versione precedente, aggiunge la colonna.
+alter table public.operators add column if not exists giorni int[];
 
 -- Profili: collega un utente autenticato (auth.users) a un operatore + ruolo.
 -- Un profilo con is_admin = true e' Amministrazione (vede tutto, gestisce le anagrafiche).

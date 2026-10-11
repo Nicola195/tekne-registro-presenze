@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Operator, Nominativo, Ruolo, RUOLI, newId, nomeCompleto } from '../model';
+import { Operator, Nominativo, Ruolo, RUOLI, newId, nomeCompleto, giorniLavorati } from '../model';
 import { C, S, chip } from '../ui';
 import { IconClose } from './Icons';
 
@@ -17,6 +17,7 @@ export function OperatorEditor({ initial, operators, nominativi, onSave, onClose
   const id = initial?.id || '';
   const [name, setName] = useState(initial?.name || '');
   const [ruolo, setRuolo] = useState<Ruolo>(initial?.ruolo || 'Educatrice');
+  const [giorni, setGiorni] = useState<number[]>(() => (initial ? giorniLavorati(initial) : [1, 2, 3, 4, 5]));
   const [assoc, setAssoc] = useState<string[]>(() =>
     initial ? nominativi.filter((n) => n.operators.includes(initial.id)).map((n) => n.name) : [],
   );
@@ -27,10 +28,11 @@ export function OperatorEditor({ initial, operators, nominativi, onSave, onClose
   const valid = !!nameTrim && !dup;
 
   const toggle = (nome: string) => setAssoc((p) => (p.includes(nome) ? p.filter((x) => x !== nome) : [...p, nome]));
+  const toggleGiorno = (g: number) => setGiorni((p) => (p.includes(g) ? p.filter((x) => x !== g) : [...p, g].sort((a, b) => a - b)));
 
   const save = () => {
     if (!valid) return;
-    onSave({ id: id || `op-${newId()}`, name: nameTrim, ruolo }, assoc);
+    onSave({ id: id || `op-${newId()}`, name: nameTrim, ruolo, giorni }, assoc);
   };
 
   const noms = [...nominativi]
@@ -61,6 +63,16 @@ export function OperatorEditor({ initial, operators, nominativi, onSave, onClose
           </div>
         </div>
         {dup && <div style={{ color: C.danger, fontSize: 13, marginTop: 6 }}>Esiste già un operatore con questo nome.</div>}
+
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, margin: '16px 0 2px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Giorni lavorativi</div>
+        <div style={{ ...S.muted, marginBottom: 8 }}>
+          I giorni della settimana in cui l'operatore lavora. Servono al promemoria delle giornate pregresse: le giornate previste senza registrazione vengono segnalate. Se non selezioni nulla, vale Lun–Ven.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {([[1, 'Lun'], [2, 'Mar'], [3, 'Mer'], [4, 'Gio'], [5, 'Ven'], [6, 'Sab'], [0, 'Dom']] as [number, string][]).map(([g, l]) => (
+            <button key={g} style={{ ...chip(giorni.includes(g)), padding: '6px 12px', fontSize: 13 }} onClick={() => toggleGiorno(g)}>{l}</button>
+          ))}
+        </div>
 
         <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, margin: '16px 0 2px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Utenze seguite</div>
         <div style={{ ...S.muted, marginBottom: 8 }}>

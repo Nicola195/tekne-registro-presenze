@@ -15,6 +15,7 @@ interface HeaderProps {
   nav?: React.ReactNode;
   onLogout: () => void;
   onSwitchMode?: () => void;
+  notif?: React.ReactNode;
 }
 
 const SwitchIcon = () => (
@@ -31,8 +32,8 @@ const LogoutIcon = () => (
   </svg>
 );
 
-/** Testata: logo e nome app a sinistra, cambio modalità e uscita a destra. */
-export function Header({ wide, nav, onLogout, onSwitchMode }: HeaderProps) {
+/** Testata: logo e nome app a sinistra, notifiche, cambio modalità e uscita a destra. */
+export function Header({ wide, nav, onLogout, onSwitchMode, notif }: HeaderProps) {
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: 10, background: C.primary, color: '#fff', borderBottom: `4px solid ${C.yellow}` }}>
       <div style={{ padding: wide ? '8px 24px' : '8px 12px', display: 'flex', alignItems: 'center', gap: wide ? 16 : 8 }}>
@@ -43,6 +44,7 @@ export function Header({ wide, nav, onLogout, onSwitchMode }: HeaderProps) {
         {wide && nav && <nav style={{ display: 'flex', gap: 4, flex: 1, justifyContent: 'center' }}>{nav}</nav>}
         {wide && !nav && <div style={{ flex: 1 }} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {notif}
           {onSwitchMode && (
             <button onClick={onSwitchMode} title="Cambia modalità" aria-label="Cambia modalità"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.12)', color: '#fff', borderRadius: 8, height: 34, padding: wide ? '0 12px' : '0 10px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>

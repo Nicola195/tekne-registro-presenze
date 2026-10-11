@@ -13,13 +13,24 @@ export interface Operator {
   id: string;
   name: string;
   ruolo: Ruolo;
+  giorni?: number[]; // giorni lavorati (getDay(): 0=Dom..6=Sab); se assente, default Lun–Ven
 }
 
 /** Normalizza le operatrici salvate da versioni precedenti (che non avevano il ruolo). */
 export const normOperators = (raw: unknown): Operator[] =>
   (Array.isArray(raw) ? raw : [])
-    .filter((o): o is { id: string; name: string; ruolo?: string } => !!o && typeof o.id === 'string' && typeof o.name === 'string')
-    .map((o) => ({ id: o.id, name: o.name, ruolo: (RUOLI as string[]).includes(o.ruolo || '') ? (o.ruolo as Ruolo) : 'Educatrice' }));
+    .filter((o): o is { id: string; name: string; ruolo?: string; giorni?: unknown } => !!o && typeof o.id === 'string' && typeof o.name === 'string')
+    .map((o) => ({
+      id: o.id,
+      name: o.name,
+      ruolo: (RUOLI as string[]).includes(o.ruolo || '') ? (o.ruolo as Ruolo) : 'Educatrice',
+      giorni: Array.isArray(o.giorni)
+        ? (o.giorni as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
+        : undefined,
+    }));
+
+/** Giorni della settimana lavorati dall'operatore (getDay 0-6); default Lun–Ven se non impostati. */
+export const giorniLavorati = (op: { giorni?: number[] }): number[] => (op.giorni && op.giorni.length ? op.giorni : [1, 2, 3, 4, 5]);
 
 /** Utenza (bambino/ragazzo seguito) con anagrafica estesa e operatrici associate. */
 export interface Nominativo {
