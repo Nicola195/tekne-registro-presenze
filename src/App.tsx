@@ -5,18 +5,30 @@ import { C, useWide } from './ui';
 import { DayView } from './components/DayView';
 import { SummaryView } from './components/SummaryView';
 import { ReportsView } from './components/ReportsView';
+import { UtenzaView } from './components/UtenzaView';
 import { AdminSettings } from './components/AdminSettings';
-import { PeriodState, initialPeriod, OperatorSelect } from './components/PeriodPicker';
+import { PeriodState, initialPeriod } from './components/PeriodPicker';
 import { Header, Footer } from './components/Shell';
 import { Login } from './components/Login';
+import { ContextPicker, Ctx } from './components/ContextPicker';
+import { ContextCard } from './components/ContextCard';
 import { useAuth } from './auth';
 import { supabaseConfigured } from './supabase';
 
-type Tab = 'giorno' | 'riepilogo' | 'estrazioni' | 'impostazioni';
+type Tab = 'giorno' | 'riepilogo' | 'estrazioni';
 type Sync = 'loading' | 'ok' | 'saving' | 'error';
 
 const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 const EMPTY: AppData = { operators: [], nominativi: [], sessions: [], unlocked: [], tariffe: [] };
+const CTX_LS = 'registro-ore-ctx-v1';
+
+function readCtx(): { ctx: Ctx | null; opId: string; nom: string } {
+  try {
+    const r = JSON.parse(localStorage.getItem(CTX_LS) || 'null');
+    if (r && typeof r === 'object') return { ctx: r.ctx ?? null, opId: r.opId || '', nom: r.nom || '' };
+  } catch { /* ignora */ }
+  return { ctx: null, opId: '', nom: '' };
+}
 
 const Centered = ({ children }: { children: React.ReactNode }) => (
   <div style={{ minHeight: '100vh', background: C.bg, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font, padding: 24, textAlign: 'center' }}>{children}</div>
@@ -25,13 +37,19 @@ const Centered = ({ children }: { children: React.ReactNode }) => (
 export const App = () => {
   const wide = useWide();
   const auth = useAuth();
-  const [tab, setTab] = useState<Tab>('giorno');
   const [data, setData] = useState<AppData>(EMPTY);
   const [loaded, setLoaded] = useState(false);
   const [, setSync] = useState<Sync>('loading');
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodState>(initialPeriod);
-  const [viewOpId, setViewOpId] = useState('');
+
+  // Contesto operativo (per l'amministrazione). ctx === null => pagina di scelta.
+  const persisted = readCtx();
+  const [ctx, setCtx] = useState<Ctx | null>(persisted.ctx);
+  const [viewOpId, setViewOpId] = useState<string>(persisted.opId);
+  const [viewNom, setViewNom] = useState<string>(persisted.nom);
+  const [tab, setTab] = useState<Tab>('giorno');
+
   const ref = useRef(data);
   ref.current = data;
 
@@ -48,21 +66,35 @@ export const App = () => {
     }
   }, [isAdmin]);
 
-  // Carica i dati solo quando l'utente è autenticato e col profilo pronto.
   useEffect(() => {
     if (ready) load();
     else { setData(EMPTY); setLoaded(false); }
   }, [ready, load]);
 
-  // L'operatrice collegata al profilo (null per l'amministrazione).
+  // Persistenza della scelta di contesto (solo UI, nessun dato sensibile).
+  useEffect(() => {
+    try { localStorage.setItem(CTX_LS, JSON.stringify({ ctx, opId: viewOpId, nom: viewNom })); } catch { /* ignora */ }
+  }, [ctx, viewOpId, viewNom]);
+
+  // Operatrice collegata al profilo (per gli operatori non amministratori).
   const me = useMemo(
     () => (auth.profile?.operatorId ? data.operators.find((o) => o.id === auth.profile!.operatorId) : undefined),
     [data.operators, auth.profile?.operatorId],
   );
-  // L'amministrazione sceglie quale operatore consultare; l'operatrice vede sé stessa.
-  const viewOp: Operator | undefined = isAdmin ? data.operators.find((o) => o.id === viewOpId) : me;
 
-  const logout = () => { if (window.confirm('Vuoi uscire?')) auth.signOut(); };
+  // Contesto effettivo: per gli operatori è sempre "operatore"; per l'amministrazione dipende dalla scelta.
+  const effCtx: Ctx | null = isAdmin ? ctx : 'operatore';
+  const viewOp: Operator | undefined = isAdmin ? (ctx === 'operatore' ? data.operators.find((o) => o.id === viewOpId) : undefined) : me;
+  const viewNomObj: Nominativo | undefined = isAdmin && ctx === 'utenza' ? data.nominativi.find((n) => n.name === viewNom) : undefined;
+
+  const enterCtx = (c: Ctx, id?: string) => {
+    setCtx(c);
+    if (c === 'operatore') { setViewOpId(id || ''); setTab('riepilogo'); }
+    else if (c === 'utenza') { setViewNom(id || ''); setTab('riepilogo'); }
+  };
+  const resetCtx = () => setCtx(null);
+
+  const logout = () => { if (window.confirm('Vuoi uscire?')) { setCtx(null); auth.signOut(); } };
 
   const update = (next: AppData) => { ref.current = next; setData(next); };
 
@@ -99,14 +131,14 @@ export const App = () => {
 
   const openDay = (d: string) => { setPeriod((pp) => ({ ...pp, mode: 'giorno', day: d })); setTab('giorno'); };
 
-  const allTabs: [Tab, string, string][] = [
-    ['giorno', isAdmin ? '👁' : '✏️', 'Presenze'],
-    ['riepilogo', '📊', 'Riepilogo'],
-    ['estrazioni', '⬇️', 'Estrazioni'],
-    ['impostazioni', '⚙️', 'Impostazioni'],
-  ];
-  const tabs = allTabs.filter(([k]) => isAdmin || k !== 'impostazioni');
-  const t: Tab = !isAdmin && tab === 'impostazioni' ? 'giorno' : tab;
+  // Tab disponibili nel contesto corrente.
+  const tabsFor = (): [Tab, string, string][] => {
+    if (effCtx === 'operatore') return [['giorno', isAdmin ? '👁' : '✏️', 'Presenze'], ['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Estrazioni']];
+    if (effCtx === 'utenza') return [['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Report famiglia']];
+    return [];
+  };
+  const tabs = tabsFor();
+  const t: Tab = tabs.some(([k]) => k === tab) ? tab : (tabs[0]?.[0] || 'riepilogo');
 
   const navBtn = (k: Tab, icon: string, label: string) => {
     const active = t === k;
@@ -142,6 +174,30 @@ export const App = () => {
   if (auth.phase !== 'ready') return <Login auth={auth} />;
   if (!loaded) return <Centered>Caricamento dati…</Centered>;
 
+  // ---------- Amministrazione senza contesto scelto: pagina di scelta ----------
+  if (isAdmin && !ctx) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
+        <Header wide={wide} onLogout={logout} />
+        <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 32px', boxSizing: 'border-box' }}>
+          {error && <div style={{ background: C.dangerSoft, color: C.danger, borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 14 }}>{error}</div>}
+          <ContextPicker operators={data.operators} nominativi={data.nominativi} onEnter={enterCtx} />
+        </main>
+        <Footer wide={wide} />
+      </div>
+    );
+  }
+
+  // Card di contesto in alto (per l'amministrazione è cliccabile e riporta alla scelta).
+  const topCard =
+    effCtx === 'operatore' ? (
+      <ContextCard kind="operatore" operator={viewOp} utenzeCount={viewOp ? data.nominativi.filter((n) => n.operators.includes(viewOp.id)).length : 0} onClick={isAdmin ? resetCtx : undefined} />
+    ) : effCtx === 'utenza' ? (
+      <ContextCard kind="utenza" nominativo={viewNomObj} onClick={resetCtx} />
+    ) : (
+      <ContextCard kind="amministrazione" onClick={resetCtx} />
+    );
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
       <Header wide={wide} nav={tabs.map(([k, i, l]) => navBtn(k, i, l))} onLogout={logout} />
@@ -152,29 +208,55 @@ export const App = () => {
             {error} <button onClick={load} style={{ marginLeft: 8, border: 'none', background: 'transparent', color: C.danger, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Riprova</button>
           </div>
         )}
-        {isAdmin && (t === 'giorno' || t === 'estrazioni') && (
-          <OperatorSelect operators={data.operators} value={viewOpId} onChange={setViewOpId} />
+
+        {topCard}
+
+        {/* ---- Contesto OPERATORE ---- */}
+        {effCtx === 'operatore' && (
+          viewOp ? (
+            <>
+              {t === 'giorno' && (
+                <DayView period={period} setPeriod={setPeriod} sessions={viewSessions} opId={viewOp.id} nominativi={data.nominativi} operators={data.operators}
+                  voci={data.tariffe.map((tt) => tt.nome)} onReplace={onReplace} readOnly={isAdmin} unlocked={data.unlocked} isAdmin={isAdmin} onToggleUnlock={onToggleUnlock} />
+              )}
+              {t === 'riepilogo' && (
+                <SummaryView period={period} setPeriod={setPeriod} sessions={data.sessions} operators={data.operators}
+                  viewOp={viewOp} isAdmin={isAdmin} tariffe={data.tariffe} onOpenDay={openDay} onGoExport={() => setTab('estrazioni')} unlocked={data.unlocked} />
+              )}
+              {t === 'estrazioni' && (
+                <ReportsView period={period} setPeriod={setPeriod} sessions={data.sessions} nominativi={data.nominativi} operators={data.operators}
+                  mode="operatore" viewOp={viewOp} tariffe={data.tariffe} unlocked={data.unlocked} />
+              )}
+            </>
+          ) : (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 28, textAlign: 'center', color: C.muted }}>
+              Operatore non trovato. Tocca la card qui sopra per sceglierne un altro.
+            </div>
+          )
         )}
 
-        {t === 'giorno' && (
-          isAdmin && !viewOp ? (
+        {/* ---- Contesto UTENZA ---- */}
+        {effCtx === 'utenza' && (
+          viewNomObj ? (
+            <>
+              {t === 'riepilogo' && (
+                <UtenzaView period={period} setPeriod={setPeriod} sessions={data.sessions} operators={data.operators}
+                  nominativo={viewNomObj} tariffe={data.tariffe} unlocked={data.unlocked} onGoExport={() => setTab('estrazioni')} />
+              )}
+              {t === 'estrazioni' && (
+                <ReportsView period={period} setPeriod={setPeriod} sessions={data.sessions} nominativi={data.nominativi} operators={data.operators}
+                  mode="utenza" fixedNom={viewNomObj.name} tariffe={data.tariffe} unlocked={data.unlocked} />
+              )}
+            </>
+          ) : (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 28, textAlign: 'center', color: C.muted }}>
-              Seleziona un operatore per vederne le presenze.
+              Utenza non trovata. Tocca la card qui sopra per sceglierne un'altra.
             </div>
-          ) : viewOp ? (
-            <DayView period={period} setPeriod={setPeriod} sessions={viewSessions} opId={viewOp.id} nominativi={data.nominativi} operators={data.operators}
-              voci={data.tariffe.map((tt) => tt.nome)} onReplace={onReplace} readOnly={isAdmin} unlocked={data.unlocked} isAdmin={isAdmin} onToggleUnlock={onToggleUnlock} />
-          ) : null
+          )
         )}
-        {t === 'riepilogo' && (
-          <SummaryView period={period} setPeriod={setPeriod} sessions={data.sessions} operators={data.operators} nominativi={data.nominativi}
-            viewOp={viewOp} isAdmin={isAdmin} tariffe={data.tariffe} setViewOp={setViewOpId} onOpenDay={openDay} onGoExport={() => setTab('estrazioni')} unlocked={data.unlocked} />
-        )}
-        {t === 'estrazioni' && (
-          <ReportsView period={period} setPeriod={setPeriod} sessions={data.sessions} nominativi={data.nominativi} operators={data.operators}
-            viewOp={viewOp} isAdmin={isAdmin} tariffe={data.tariffe} unlocked={data.unlocked} />
-        )}
-        {t === 'impostazioni' && isAdmin && (
+
+        {/* ---- Contesto AMMINISTRAZIONE ---- */}
+        {effCtx === 'amministrazione' && (
           <AdminSettings operators={data.operators} nominativi={data.nominativi} sessions={data.sessions} tariffe={data.tariffe}
             onOperators={onOperators} onNominativi={onNominativi} onTariffe={onTariffe} />
         )}
@@ -182,7 +264,7 @@ export const App = () => {
 
       <Footer wide={wide} />
 
-      {!wide && (
+      {!wide && tabs.length > 0 && (
         <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: `1px solid ${C.border}`, display: 'flex', zIndex: 30, paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {tabs.map(([k, i, l]) => navBtn(k, i, l))}
         </nav>
