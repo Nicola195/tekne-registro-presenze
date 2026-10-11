@@ -6,6 +6,7 @@ import { OperatorEditor } from './OperatorEditor';
 import { seg } from './PeriodPicker';
 import { AccessiView } from './AccessiView';
 import { IconEdit, IconTrash } from './Icons';
+import { EstrazioniView } from './EstrazioniView';
 
 interface Props {
   operators: Operator[];
@@ -20,7 +21,7 @@ interface Props {
 // Due sezioni "padre", ognuna con le proprie sezioni "figlie".
 type Parent = 'anagrafiche' | 'gestione';
 type SubAnag = 'utenze' | 'operatori';
-type SubGest = 'tariffe' | 'accessi';
+type SubGest = 'tariffe' | 'accessi' | 'estrazioni';
 
 export function AdminSettings({ operators, nominativi, sessions, tariffe, onOperators, onNominativi, onTariffe }: Props) {
   const wide = useWide();
@@ -184,7 +185,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
   // ---------- Navigazione a due livelli ----------
   const parentTabs: [Parent, string][] = [['anagrafiche', 'Anagrafiche'], ['gestione', 'Gestione amministrativa']];
   const anagTabs: [SubAnag, string][] = [['utenze', `Utenze assistite (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`]];
-  const gestTabs: [SubGest, string][] = [['tariffe', `Terapie (${tariffe.length})`], ['accessi', 'Account e accessi']];
+  const gestTabs: [SubGest, string][] = [['tariffe', `Terapie (${tariffe.length})`], ['accessi', 'Account e accessi'], ['estrazioni', 'Estrazioni']];
   const parentDesc = parent === 'anagrafiche'
     ? 'Anagrafiche del centro: le utenze assistite (bambini e ragazzi) e gli operatori (educatori e psicologi), con le relative associazioni.'
     : 'Funzioni riservate all’amministrazione: le terapie con le relative tariffe orarie e la gestione degli account di accesso.';
@@ -218,6 +219,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
           <div style={{ height: 12 }} />
           {subGest === 'tariffe' && tariffeView}
           {subGest === 'accessi' && <AccessiView operators={operators} onOperators={onOperators} />}
+          {subGest === 'estrazioni' && <EstrazioniView sessions={sessions} operators={operators} nominativi={nominativi} tariffe={tariffe} />}
         </>
       )}
 

@@ -347,15 +347,18 @@ export function writeReport(r: Report): Blob {
   return doc.output('blob');
 }
 
-export async function saveReport(r: Report) {
-  // Download standard del browser (nessuna dipendenza esterna).
-  const blob = writeReport(r);
+/** Scarica un Blob con il nome indicato (download standard del browser). */
+export function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${r.file}.pdf`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+export async function saveReport(r: Report) {
+  downloadBlob(`${r.file}.pdf`, writeReport(r));
 }

@@ -2,7 +2,7 @@ import {
   Session, Operator, Nominativo, Period, TariffaVoce, perName, daysBetween, weekday, dateIT, fascia, isConc, isLavoro, round2, parseISO, opName,
   attivitaLabel, pad, weekStart, fmtH, fmtEuro, importoSessione, nomeCompleto, genitoriLabel,
 } from './model';
-import { Cell, Col, Section, saveReport } from './report-pdf';
+import { Cell, Col, Section, saveReport, writeReport, downloadBlob } from './report-pdf';
 import { annoEducativo } from './branding';
 
 const fmtNum = (h: number) => h.toLocaleString('it-IT', { maximumFractionDigits: 2 });
@@ -12,6 +12,7 @@ const ddmm = (iso: string) => {
 };
 const dataG = (iso: string) => `${weekday(iso)} ${ddmm(iso)}`;
 const byTime = (a: Session, b: Session) => a.date.localeCompare(b.date) || (a.start || '99').localeCompare(b.start || '99');
+const byName = (a: Operator, b: Operator) => a.name.localeCompare(b.name);
 const tagExtra = (s: Session, n: string) => (s.extraNames?.includes(n) ? ' (extra)' : '');
 const noteTerapia = (s: Session) => [attivitaLabel(s), s.note || ''].filter(Boolean).join(' - ');
 const sumH = (l: Session[]) => round2(l.reduce((a, s) => a + s.hours, 0));
@@ -41,11 +42,14 @@ const ensure = (os: Session[]) => {
   if (!os.length) throw new Error('Nessuna ora registrata nel periodo selezionato.');
 };
 
+/** Ore lavorate di un operatore nel periodo. */
+const oreOp = (sessions: Session[], opId: string, p: Period) =>
+  sessions.filter((s) => s.operatorId === opId && isLavoro(s) && s.date >= p.from && s.date <= p.to);
+
 // ---------- Registro ore lavorate ----------
 
-export async function exportRegistro(sessions: Session[], op: Operator, operators: Operator[], p: Period) {
-  const os = sessions.filter((s) => s.operatorId === op.id && isLavoro(s) && s.date >= p.from && s.date <= p.to).sort(byTime);
-  ensure(os);
+/** Sezioni (una per settimana) del registro ore di un operatore. `os` già filtrato e ordinato. */
+function registroSections(os: Session[], operators: Operator[], p: Period, titlePrefix?: string): Section[] {
   const showExtra = os.some((s) => s.extraNames?.length);
   const cols: Col[] = [
     { label: 'Data', width: 13, align: 'center' },
@@ -60,12 +64,12 @@ export async function exportRegistro(sessions: Session[], op: Operator, operator
     .map((w) => ({ ...w, list: os.filter((s) => w.days.includes(s.date)) }))
     .filter((w) => w.list.length);
 
-  const sections: Section[] = ws.map((w, i) => {
+  return ws.map((w, i) => {
     const days = new Set(w.list.map((s) => s.date)).size;
     const summary: [string, string][] = [[`Totale ore settimana (${days} ${days === 1 ? 'giorno' : 'giorni'})`, fmtH(sumH(w.list))]];
     if (i === ws.length - 1) summary.push(['Totale ore del periodo', fmtH(total)]);
     return {
-      title: weekLabel(w.days),
+      title: (titlePrefix && i === 0 ? `${titlePrefix} · ` : '') + weekLabel(w.days),
       subtitle: `Settimana ${i + 1} di ${ws.length}`,
       cols,
       rows: w.list.map((s): Cell[] => [
@@ -76,15 +80,18 @@ export async function exportRegistro(sessions: Session[], op: Operator, operator
       summary,
     };
   });
+}
 
-  await saveReport({ file: `Registro ore lavorate - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Registro ore lavorate', op.name], right: ['Periodo', p.label] }, sections });
+export async function exportRegistro(sessions: Session[], op: Operator, operators: Operator[], p: Period) {
+  const os = oreOp(sessions, op.id, p).sort(byTime);
+  ensure(os);
+  await saveReport({ file: `Registro ore lavorate - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Registro ore lavorate', op.name], right: ['Periodo', p.label] }, sections: registroSections(os, operators, p) });
 }
 
 // ---------- Ore per nominativo ----------
 
-export async function exportOrePerNominativo(sessions: Session[], op: Operator, nominativi: Nominativo[], p: Period, tariffe?: TariffaVoce[]) {
-  const os = sessions.filter((s) => s.operatorId === op.id && isLavoro(s) && s.date >= p.from && s.date <= p.to);
-  ensure(os);
+/** Sezioni (riepilogo + griglie settimanali) delle ore per nominativo di un operatore. `os` già filtrato. */
+function oreNomSections(os: Session[], nominativi: Nominativo[], p: Period, tariffe?: TariffaVoce[], titoloRiepilogo = ''): Section[] {
   const order = Array.from(new Set([...nominativi.map((n) => n.name), ...os.flatMap((s) => s.names)]));
   const rows = perName(os, order).filter((r) => r.hours > 0).sort((a, b) => a.name.localeCompare(b.name));
   const showExtra = rows.some((r) => r.extraHours > 0);
@@ -94,7 +101,7 @@ export async function exportOrePerNominativo(sessions: Session[], op: Operator, 
   const importoTot = round2(rows.reduce((a, r) => a + importoNome(r.name), 0));
 
   const riepilogo: Section = {
-    title: '',
+    title: titoloRiepilogo,
     cols: [
       { label: 'Nominativo', width: 30 },
       { label: 'ORE TOTALI', width: 18, align: 'center', emphasis: true },
@@ -130,7 +137,13 @@ export async function exportOrePerNominativo(sessions: Session[], op: Operator, 
     };
   });
 
-  await saveReport({ file: `Ore per nominativo - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Riepilogo ore', op.name], right: ['Periodo', p.label] }, sections: [riepilogo, ...griglie] });
+  return [riepilogo, ...griglie];
+}
+
+export async function exportOrePerNominativo(sessions: Session[], op: Operator, nominativi: Nominativo[], p: Period, tariffe?: TariffaVoce[]) {
+  const os = oreOp(sessions, op.id, p);
+  ensure(os);
+  await saveReport({ file: `Ore per nominativo - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Riepilogo ore', op.name], right: ['Periodo', p.label] }, sections: oreNomSections(os, nominativi, p, tariffe) });
 }
 
 // ---------- Report per famiglia (da consegnare ai genitori) ----------
@@ -200,4 +213,35 @@ export async function exportTutteFamiglie(sessions: Session[], operators: Operat
     .filter((s): s is Section => !!s);
   if (!sections.length) throw new Error('Nessuna ora registrata nel periodo selezionato.');
   await saveReport({ file: `Riepilogo ore famiglie - ${p.fileLabel}`, ...famReport(p), sections });
+}
+
+// ---------- Estrazioni massive (solo amministrazione) ----------
+
+/** Ore per nominativo di TUTTI gli operatori, in un unico PDF con una sezione iniziale per operatore. */
+export async function exportOrePerNominativoTutti(sessions: Session[], operators: Operator[], nominativi: Nominativo[], p: Period) {
+  const sections: Section[] = [];
+  for (const op of [...operators].sort(byName)) {
+    const os = oreOp(sessions, op.id, p);
+    if (!os.length) continue;
+    sections.push(...oreNomSections(os, nominativi, p, undefined, `${op.name} – ${op.ruolo}`));
+  }
+  if (!sections.length) throw new Error('Nessuna ora registrata nel periodo selezionato.');
+  await saveReport({ file: `Ore per nominativo - tutti gli operatori - ${p.fileLabel}`, anno: anno(p), meta: { center: `Ore per nominativo · ${p.mese || p.label}` }, sections });
+}
+
+/** Registro ore di TUTTI gli operatori: uno ZIP con un PDF per operatore. */
+export async function exportRegistroTuttiZip(sessions: Session[], operators: Operator[], p: Period) {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  let count = 0;
+  for (const op of [...operators].sort(byName)) {
+    const os = oreOp(sessions, op.id, p).sort(byTime);
+    if (!os.length) continue;
+    const blob = writeReport({ file: `Registro ore - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Registro ore lavorate', op.name], right: ['Periodo', p.label] }, sections: registroSections(os, operators, p) });
+    zip.file(`Registro ore - ${op.name} - ${p.fileLabel}.pdf`, await blob.arrayBuffer());
+    count++;
+  }
+  if (!count) throw new Error('Nessuna ora registrata nel periodo selezionato.');
+  const content = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(`Registri ore - tutti gli operatori - ${p.fileLabel}.zip`, content);
 }
