@@ -1,11 +1,8 @@
 // Archiviazione dati — VERSIONE SUPABASE (Postgres + Row-Level Security).
 // Unico modulo che parla col database: il resto dell'app resta invariato.
-// L'interfaccia pubblica è identica alla versione statica
-// (AppData, loadAll, saveBlock, saveOperators, saveNominativi, saveUnlocked,
-//  saveTariffe, blockOf, errMsg, DEFAULT_OP), così App.tsx non cambia nella logica dati.
-import { Session, Operator, Nominativo, TariffaVoce, AssenzaTipo, DEFAULT_TARIFFE, monthKey, addMonths, newId, extraFor, minutesBetween, round2, normOperators } from './model';
-import { SEED_ENTRIES, SEED_NAMES } from './seed';
-import { PRESENZE, PRESENZE_FROM, PRESENZE_TO } from './presenze';
+// Nessun dato è incorporato nel codice né salvato nello storage del browser:
+// la fonte di verità è esclusivamente il database Supabase.
+import { Session, Operator, Nominativo, TariffaVoce, AssenzaTipo, DEFAULT_TARIFFE, monthKey, addMonths, normOperators } from './model';
 import { supabase } from './supabase';
 
 export const DEFAULT_OP: Operator = { id: 'op-tatulli', name: 'TATULLI Ilaria', ruolo: 'Educatrice' };
@@ -37,16 +34,6 @@ export function normTariffe(raw: unknown): TariffaVoce[] {
 
 export const blockKey = (opId: string, mk: string) => `${mk}#${opId}`;
 export const blockOf = (s: Session) => blockKey(s.operatorId || DEFAULT_OP.id, monthKey(s.date));
-
-// La versione Supabase è la fonte di verità: nessuna cache locale dei dati
-// (eviterebbe anche possibili fughe di dati tra utenti diversi sullo stesso browser).
-// Le due funzioni restano esportate per compatibilità, ma sono inerti.
-export function cacheLocal(_data: AppData) {
-  /* no-op nella versione Supabase */
-}
-export function readLocal(): AppData | null {
-  return null;
-}
 
 // ---------- Mappatura righe DB (snake_case) <-> modello app (camelCase) ----------
 
@@ -159,66 +146,8 @@ export const saveBlock = async (key: string, list: Session[]) => {
   if (error) throw error;
 };
 
-// ---------- Dati iniziali (settembre 2026 verificato) ----------
-
-const stamp = (s: Session, opId: string, noms: Nominativo[]): Session => {
-  const extra = extraFor(s.names, opId, noms);
-  return { ...s, operatorId: opId, extraNames: extra.length ? extra : undefined };
-};
-
-/** Registrazioni del foglio presenze (con fasce orarie, contemporaneità e note/terapia). */
-export function presenzeSessions(opId: string, noms: Nominativo[]): Session[] {
-  const out: Session[] = [];
-  Object.entries(PRESENZE).forEach(([date, rows]) =>
-    rows.forEach(([start, end, names, att]) =>
-      out.push(stamp({ id: newId(), date, start, hours: round2(minutesBetween(start, end) / 60), names: [...names], attivita: att.length ? [...att] : undefined }, opId, noms)),
-    ),
-  );
-  return out;
-}
-
-/** Costruisce il dataset iniziale: anagrafiche + presenze verificate 31/08–30/09/2026. */
-function buildInitial(): AppData {
-  const names = [...SEED_NAMES];
-  let sessions: Session[] = [];
-  Object.entries(SEED_ENTRIES).forEach(([date, list]) =>
-    list.forEach(([name, hours]) => sessions.push({ id: newId(), date, hours, names: [name] })),
-  );
-  // FALCO è di un'altra collega: non assegnato, le sue ore risultano "extra".
-  const nominativi: Nominativo[] = names.map((name) => ({ name, operators: name === 'FALCO' ? [] : [DEFAULT_OP.id] }));
-  sessions = sessions.map((s) => stamp(s, DEFAULT_OP.id, nominativi));
-  const keep = sessions.filter((s) => !(s.operatorId === DEFAULT_OP.id && s.date >= PRESENZE_FROM && s.date <= PRESENZE_TO));
-  sessions = [...keep, ...presenzeSessions(DEFAULT_OP.id, nominativi)];
-  return { operators: [DEFAULT_OP], nominativi, sessions, unlocked: [], tariffe: DEFAULT_TARIFFE.map((t) => ({ ...t })) };
-}
-
-/** Se il database è vuoto, inserisce i dati verificati di settembre 2026.
- *  Eseguito solo dall'amministrazione (le policy RLS consentono la scrittura). */
-async function seedIfEmpty(): Promise<void> {
-  const { data, error } = await supabase.from('operators').select('id').limit(1);
-  if (error) throw error;
-  if (data && data.length) return; // già popolato
-  const init = buildInitial();
-  const r1 = await supabase.from('operators').upsert(init.operators.map(operatorToRow));
-  if (r1.error) throw r1.error;
-  const r2 = await supabase.from('nominativi').upsert(init.nominativi.map(nominativoToRow));
-  if (r2.error) throw r2.error;
-  const rows = init.sessions.map(sessionToRow);
-  for (let i = 0; i < rows.length; i += 200) {
-    const chunk = rows.slice(i, i + 200);
-    const r = await supabase.from('sessions').insert(chunk);
-    if (r.error) throw r.error;
-  }
-  const r3 = await supabase.from('config').upsert([
-    { key: 'tariffe-voci', value: init.tariffe },
-    { key: 'giorni-sbloccati', value: init.unlocked },
-  ]);
-  if (r3.error) throw r3.error;
-}
-
 /** Carica tutti i dati visibili all'utente corrente (le policy RLS filtrano le sessioni). */
-export async function loadAll(ctx: { isAdmin: boolean }): Promise<AppData> {
-  if (ctx.isAdmin) await seedIfEmpty();
+export async function loadAll(_ctx: { isAdmin: boolean }): Promise<AppData> {
   const [opsRes, nomRes, sesRes, cfgRes] = await Promise.all([
     supabase.from('operators').select('*'),
     supabase.from('nominativi').select('*'),

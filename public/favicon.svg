@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="TEKNE Registro Ore">
+  <rect width="64" height="64" rx="14" fill="#045e66"/>
+  <rect x="16" y="17" width="32" height="8" rx="1.5" fill="#fabe35"/>
+  <rect x="28" y="17" width="8" height="33" rx="1.5" fill="#fabe35"/>
+</svg>

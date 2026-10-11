@@ -21,15 +21,6 @@ type Sync = 'loading' | 'ok' | 'saving' | 'error';
 
 const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 const EMPTY: AppData = { operators: [], nominativi: [], sessions: [], unlocked: [], tariffe: [] };
-const CTX_LS = 'registro-ore-ctx-v2';
-
-function readCtx(): { mode: Ctx | null; sel: string } {
-  try {
-    const r = JSON.parse(localStorage.getItem(CTX_LS) || 'null');
-    if (r && typeof r === 'object') return { mode: r.mode ?? null, sel: r.sel || '' };
-  } catch { /* ignora */ }
-  return { mode: null, sel: '' };
-}
 
 const Centered = ({ children }: { children: React.ReactNode }) => (
   <div style={{ minHeight: '100vh', background: C.bg, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font, padding: 24, textAlign: 'center' }}>{children}</div>
@@ -45,9 +36,9 @@ export const App = () => {
   const [period, setPeriod] = useState<PeriodState>(initialPeriod);
 
   // Contesto operativo (amministrazione): modalità + selezione (id operatore o nome utenza).
-  const persisted = readCtx();
-  const [mode, setMode] = useState<Ctx | null>(persisted.mode);
-  const [sel, setSel] = useState<string>(persisted.sel);
+  // Solo stato in memoria: nessun dato sensibile (es. cognome dell'utenza) finisce nello storage del browser.
+  const [mode, setMode] = useState<Ctx | null>(null);
+  const [sel, setSel] = useState<string>('');
   const [tab, setTab] = useState<Tab>('riepilogo');
 
   const ref = useRef(data);
@@ -70,11 +61,6 @@ export const App = () => {
     if (ready) load();
     else { setData(EMPTY); setLoaded(false); }
   }, [ready, load]);
-
-  // Persistenza della scelta di contesto (solo UI).
-  useEffect(() => {
-    try { localStorage.setItem(CTX_LS, JSON.stringify({ mode, sel })); } catch { /* ignora */ }
-  }, [mode, sel]);
 
   // Operatrice collegata al profilo (operatori non amministratori).
   const me = useMemo(
