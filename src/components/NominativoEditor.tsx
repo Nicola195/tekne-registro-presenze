@@ -5,6 +5,7 @@ import { C, S } from '../ui';
 interface Props {
   initial?: Nominativo;
   esistenti: string[]; // cognomi già presenti (per evitare duplicati sui nuovi)
+  voci: string[];      // voci di terapia definite in «Terapie» (le uniche selezionabili)
   onSave: (n: Nominativo) => void;
   onClose: () => void;
 }
@@ -17,7 +18,7 @@ const field = (label: string, el: React.ReactNode): React.ReactNode => (
 );
 
 /** Scheda anagrafica di un'utenza (bambino/ragazzo). */
-export function NominativoEditor({ initial, esistenti, onSave, onClose }: Props) {
+export function NominativoEditor({ initial, esistenti, voci, onSave, onClose }: Props) {
   const [f, setF] = useState<Nominativo>(initial || { name: '', operators: [] });
   const set = (patch: Partial<Nominativo>) => setF((p) => ({ ...p, ...patch }));
   const isNew = !initial;
@@ -64,7 +65,22 @@ export function NominativoEditor({ initial, esistenti, onSave, onClose }: Props)
           {field('Telefono', inp('telefono'))}
         </div>
         {field('Indirizzo', inp('indirizzo', 'Via, civico, città'))}
-        {field('Tipologia di terapia / motivazione', <textarea style={{ ...S.input, minHeight: 54, resize: 'vertical' }} value={f.terapia || ''} placeholder="Es. terapia logopedica, sostegno all'apprendimento…" onChange={(e) => set({ terapia: e.target.value })} />)}
+        {field('Tipologia di terapia', (
+          <>
+            <select style={S.input} value={f.terapia || ''} onChange={(e) => set({ terapia: e.target.value || undefined })}>
+              <option value="">— Nessuna / non indicata —</option>
+              {voci.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+              {f.terapia && !voci.includes(f.terapia) && <option value={f.terapia}>{f.terapia} (non in elenco)</option>}
+            </select>
+            <div style={{ ...S.muted, marginTop: 4 }}>
+              {voci.length
+              ? 'Scegli tra le voci definite in «Gestione amministrativa → Terapie».'
+                : 'Nessuna voce disponibile: definiscile prima in «Gestione amministrativa → Terapie».'}
+            </div>
+          </>
+        ))}
         {dup && <div style={{ color: C.danger, fontSize: 13, marginTop: 6 }}>Esiste già un'utenza con questo cognome.</div>}
 
         <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, margin: '16px 0 2px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Genitori / Tutori</div>

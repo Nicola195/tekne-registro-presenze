@@ -17,15 +17,15 @@ interface Props {
 }
 
 // Due sezioni "padre", ognuna con le proprie sezioni "figlie".
-type Parent = 'utenti' | 'amministrazione';
-type SubUtenti = 'utenze' | 'operatori';
-type SubAdmin = 'tariffe' | 'accessi';
+type Parent = 'anagrafiche' | 'gestione';
+type SubAnag = 'utenze' | 'operatori';
+type SubGest = 'tariffe' | 'accessi';
 
 export function AdminSettings({ operators, nominativi, sessions, tariffe, onOperators, onNominativi, onTariffe }: Props) {
   const wide = useWide();
-  const [parent, setParent] = useState<Parent>('utenti');
-  const [subUtenti, setSubUtenti] = useState<SubUtenti>('utenze');
-  const [subAdmin, setSubAdmin] = useState<SubAdmin>('tariffe');
+  const [parent, setParent] = useState<Parent>('anagrafiche');
+  const [subAnag, setSubAnag] = useState<SubAnag>('utenze');
+  const [subGest, setSubGest] = useState<SubGest>('tariffe');
 
   const totalNom = (n: string) => round2(sessions.filter((s) => s.names.includes(n)).reduce((a, s) => a + s.hours, 0));
   const totalOp = (id: string) => round2(sessions.filter((s) => s.operatorId === id).reduce((a, s) => a + s.hours, 0));
@@ -87,21 +87,21 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
     onTariffe(tariffe.map((x) => (x.nome === t.nome ? { ...x, nome } : x)));
   };
   const removeVoce = (nome: string) => {
-    const usata = sessions.some((s) => s.attivita?.includes(nome));
+    const usata = sessions.some((s) => s.attivita?.includes(nome)) || nominativi.some((n) => n.terapia === nome);
     const msg = usata
-      ? `La voce "${nome}" è usata in alcune registrazioni. Rimuovendola non sarà più selezionabile; le registrazioni esistenti la conservano. Procedere?`
+      ? `La voce "${nome}" è usata in alcune registrazioni o utenze. Rimuovendola non sarà più selezionabile; i dati esistenti la conservano. Procedere?`
       : `Rimuovere la voce "${nome}"?`;
     if (window.confirm(msg)) onTariffe(tariffe.filter((t) => t.nome !== nome));
   };
 
-  // ---------- UTENZE ----------
+  // ---------- UTENZE ASSISTITE ----------
   const utenzeView = (
     <div style={S.card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <div style={S.h2}>Utenze</div>
+        <div style={S.h2}>Utenze assistite</div>
         <button style={S.btn} onClick={() => setEditing('new')}>+ Nuova utenza</button>
       </div>
-      <div style={{ ...S.muted, marginBottom: 8 }}>Bambini e ragazzi seguiti. Apri una scheda per i dati anagrafici e i riferimenti dei genitori/tutori.</div>
+      <div style={{ ...S.muted, marginBottom: 8 }}>Bambini e ragazzi seguiti dal centro. Apri una scheda per i dati anagrafici, la terapia e i riferimenti dei genitori/tutori.</div>
       {nominativi.length > 6 && <input style={{ ...S.input, marginBottom: 8 }} placeholder="Cerca utenza…" value={filtroU} onChange={(e) => setFiltroU(e.target.value)} />}
       {utenze.map((n) => (
         <div key={n.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => setEditing(n)}>
@@ -148,12 +148,12 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
     </div>
   );
 
-  // ---------- TARIFFE ----------
+  // ---------- VOCI DI TERAPIA E TARIFFE ----------
   const tariffeView = (
     <div style={S.card}>
-      <div style={S.h2}>Voci di terapia e tariffe orarie</div>
+      <div style={S.h2}>Terapie</div>
       <div style={{ ...S.muted, marginBottom: 10 }}>
-        Definisci le voci di intervento e la relativa tariffa oraria. Sono le <b>uniche</b> voci che gli operatori possono selezionare quando registrano le ore.
+        Definisci le voci di intervento e la relativa tariffa oraria. Sono le <b>uniche</b> voci selezionabili sia dagli operatori quando registrano le ore, sia nella scheda delle utenze come terapia.
         Tariffe e importi sono visibili solo all'amministrazione.
       </div>
       {tariffe.map((t) => (
@@ -172,7 +172,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
           <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={() => removeVoce(t.nome)} title="Rimuovi">🗑</button>
         </div>
       ))}
-      {tariffe.length === 0 && <div style={S.muted}>Nessuna voce definita: aggiungine almeno una, altrimenti gli operatori non potranno indicare il tipo di intervento.</div>}
+      {tariffe.length === 0 && <div style={S.muted}>Nessuna voce definita: aggiungine almeno una, altrimenti operatori e utenze non potranno indicare la terapia.</div>}
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <input style={{ ...S.input, flex: '1 1 180px', width: 'auto' }} value={newVoce} placeholder="Nuova voce (es. Logopedia)" onChange={(e) => setNewVoce(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addVoce()} />
         <button style={S.btn} onClick={addVoce}>Aggiungi voce</button>
@@ -181,12 +181,12 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
   );
 
   // ---------- Navigazione a due livelli ----------
-  const parentTabs: [Parent, string][] = [['utenti', 'Utenti del sistema'], ['amministrazione', 'Amministrazione']];
-  const utentiTabs: [SubUtenti, string][] = [['utenze', `Utenze (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`]];
-  const adminTabs: [SubAdmin, string][] = [['tariffe', `Tariffe (${tariffe.length})`], ['accessi', 'Gestione accessi']];
-  const parentDesc = parent === 'utenti'
-    ? 'Anagrafiche del sistema: utenze (bambini e ragazzi) e operatori (educatori e psicologi).'
-    : 'Funzioni riservate all’amministrazione: tariffe delle voci di terapia e gestione degli accessi.';
+  const parentTabs: [Parent, string][] = [['anagrafiche', 'Anagrafiche'], ['gestione', 'Gestione amministrativa']];
+  const anagTabs: [SubAnag, string][] = [['utenze', `Utenze assistite (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`]];
+  const gestTabs: [SubGest, string][] = [['tariffe', `Terapie (${tariffe.length})`], ['accessi', 'Account e accessi']];
+  const parentDesc = parent === 'anagrafiche'
+    ? 'Anagrafiche del centro: le utenze assistite (bambini e ragazzi) e gli operatori (educatori e psicologi), con le relative associazioni.'
+    : 'Funzioni riservate all’amministrazione: le terapie con le relative tariffe orarie e la gestione degli account di accesso.';
 
   const tabBar = (tabs: [string, string][], active: string, onSel: (k: string) => void, accent = C.primary) => (
     <div style={{ display: 'flex', background: '#ebede4', borderRadius: 10, padding: 3, maxWidth: 680, flexWrap: wide ? 'nowrap' : 'wrap' }}>
@@ -203,20 +203,20 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
       <div style={{ ...S.muted, margin: '8px 2px 12px' }}>{parentDesc}</div>
 
       {/* Sezioni figlie */}
-      {parent === 'utenti' && (
+      {parent === 'anagrafiche' && (
         <>
-          {tabBar(utentiTabs as [string, string][], subUtenti, (k) => setSubUtenti(k as SubUtenti))}
+          {tabBar(anagTabs as [string, string][], subAnag, (k) => setSubAnag(k as SubAnag))}
           <div style={{ height: 12 }} />
-          {subUtenti === 'utenze' && utenzeView}
-          {subUtenti === 'operatori' && operatoriView}
+          {subAnag === 'utenze' && utenzeView}
+          {subAnag === 'operatori' && operatoriView}
         </>
       )}
-      {parent === 'amministrazione' && (
+      {parent === 'gestione' && (
         <>
-          {tabBar(adminTabs as [string, string][], subAdmin, (k) => setSubAdmin(k as SubAdmin))}
+          {tabBar(gestTabs as [string, string][], subGest, (k) => setSubGest(k as SubGest))}
           <div style={{ height: 12 }} />
-          {subAdmin === 'tariffe' && tariffeView}
-          {subAdmin === 'accessi' && <AccessiView operators={operators} onOperators={onOperators} />}
+          {subGest === 'tariffe' && tariffeView}
+          {subGest === 'accessi' && <AccessiView operators={operators} onOperators={onOperators} />}
         </>
       )}
 
@@ -224,6 +224,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
         <NominativoEditor
           initial={editing === 'new' ? undefined : editing}
           esistenti={nominativi.map((n) => n.name)}
+          voci={tariffe.map((t) => t.nome)}
           onClose={() => setEditing(null)}
           onSave={saveNom}
         />
