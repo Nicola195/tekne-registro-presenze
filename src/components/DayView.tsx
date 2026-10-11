@@ -8,6 +8,7 @@ import { AbsenceEditor } from './AbsenceEditor';
 import { DayList } from './DayList';
 import { StatsSection, Separator } from './Stats';
 import { PeriodCard, PeriodState, toPeriod } from './PeriodPicker';
+import { IconLink, IconSplit } from './Icons';
 
 interface Props {
   period: PeriodState;
@@ -63,11 +64,11 @@ export function DayView({ period, setPeriod, sessions, opId, nominativi, operato
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         {dayList.filter(isLavoro).length > 1 && (
           <button title="Rendi contemporanea a un'altra registrazione" onClick={(e) => { e.stopPropagation(); setLinkFrom(s); }}
-            style={{ ...S.btnGhost, padding: '4px 8px', fontSize: 12, color: C.conc }}>⇄</button>
+            style={{ ...S.btnGhost, padding: '4px 8px', fontSize: 12, color: C.conc, display: 'inline-flex', alignItems: 'center' }}><IconLink color={C.conc} /></button>
         )}
         {isConc(s) && (
           <button title="Separa un nominativo" onClick={(e) => { e.stopPropagation(); const n = window.prompt(`Separare quale nominativo? (${s.names.join(', ')})`)?.trim().toUpperCase(); if (n && s.names.includes(n)) onReplace([s.id], splitName(s, n)); }}
-            style={{ ...S.btnGhost, padding: '4px 8px', fontSize: 12 }}>⤲</button>
+            style={{ ...S.btnGhost, padding: '4px 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center' }}><IconSplit /></button>
         )}
       </div>
     );
@@ -87,7 +88,7 @@ export function DayView({ period, setPeriod, sessions, opId, nominativi, operato
       {giorno && nonLav && (
         <div style={{ ...S.card, marginTop: 12, background: sbloccato ? C.primarySoft : C.dangerSoft, borderColor: sbloccato ? C.primary : '#f1b0ab', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: sbloccato ? C.primaryDark : C.danger }}>
-            {sbloccato ? '✓ Giornata sbloccata per lavoro straordinario' : '● Giorno non lavorativo'}
+            {sbloccato ? 'Giornata sbloccata per lavoro straordinario' : 'Giorno non lavorativo'}
           </span>
           {isAdmin && onToggleUnlock && (
             <button style={{ ...S.btnGhost, padding: '6px 10px', fontSize: 13 }} onClick={() => onToggleUnlock(date)}>{sbloccato ? 'Blocca di nuovo' : 'Sblocca giornata'}</button>

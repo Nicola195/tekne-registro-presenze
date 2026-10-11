@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Nominativo, nomeCompleto, dateIT } from '../model';
 import { C, S } from '../ui';
+import { IconClose } from './Icons';
 
 interface Props {
   initial?: Nominativo;
@@ -52,7 +53,7 @@ export function NominativoEditor({ initial, esistenti, voci, onSave, onClose }: 
       <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg, width: '100%', maxWidth: 620, borderRadius: 16, padding: '16px 18px 22px', boxSizing: 'border-box', borderTop: `5px solid ${C.yellow}`, margin: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontWeight: 700, fontSize: 17 }}>{isNew ? 'Nuova utenza' : `Scheda di ${nomeCompleto(f)}`}</div>
-          <button style={S.iconBtn} onClick={onClose} aria-label="Chiudi">✕</button>
+          <button style={{ ...S.iconBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} aria-label="Chiudi"><IconClose /></button>
         </div>
 
         <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, margin: '14px 0 2px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Dati dell'utente</div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { C, S } from '../ui';
+import { IconClose } from './Icons';
 
 interface Props {
   options: string[];
@@ -32,7 +33,7 @@ export function MultiSelect({ options, selected, onToggle, placeholder = 'Selezi
                 role="button"
                 onClick={(e) => { e.stopPropagation(); onToggle(n); }}
                 style={{ cursor: 'pointer', fontWeight: 700 }}
-              >✕</span>
+              ><IconClose size={12} /></span>
             </span>
           ))
         )}

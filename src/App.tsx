@@ -12,6 +12,7 @@ import { Header, Footer } from './components/Shell';
 import { Login } from './components/Login';
 import { ModePicker, ListPicker, Ctx } from './components/ContextPicker';
 import { ContextCard } from './components/ContextCard';
+import { IconEye, IconPencil, IconChart, IconDownload, IconProps } from './components/Icons';
 import { useAuth } from './auth';
 import { supabaseConfigured } from './supabase';
 
@@ -129,27 +130,27 @@ export const App = () => {
   const openDay = (d: string) => { setPeriod((pp) => ({ ...pp, mode: 'giorno', day: d })); setTab('giorno'); };
 
   // Tab disponibili nel contesto corrente.
-  const tabsFor = (): [Tab, string, string][] => {
-    if (effMode === 'operatore') return [['giorno', isAdmin ? '👁' : '✏️', 'Presenze'], ['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Estrazioni']];
-    if (effMode === 'utenza') return [['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Report famiglia']];
+  const tabsFor = (): [Tab, (p: IconProps) => React.ReactElement, string][] => {
+    if (effMode === 'operatore') return [['giorno', isAdmin ? IconEye : IconPencil, 'Presenze'], ['riepilogo', IconChart, 'Riepilogo'], ['estrazioni', IconDownload, 'Estrazioni']];
+    if (effMode === 'utenza') return [['riepilogo', IconChart, 'Riepilogo'], ['estrazioni', IconDownload, 'Report famiglia']];
     return [];
   };
   const tabs = tabsFor();
   const t: Tab = tabs.some(([k]) => k === tab) ? tab : (tabs[0]?.[0] || 'riepilogo');
 
-  const navBtn = (k: Tab, icon: string, label: string) => {
+  const navBtn = (k: Tab, Icon: (p: IconProps) => React.ReactElement, label: string) => {
     const active = t === k;
     return wide ? (
       <button key={k} onClick={() => setTab(k)}
         style={{ border: 'none', cursor: 'pointer', borderRadius: 10, padding: '9px 14px', fontSize: 14, fontWeight: 600,
           background: active ? C.yellow : 'transparent', color: active ? C.primaryDark : '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span>{icon}</span>{label}
+        <Icon size={18} />{label}
       </button>
     ) : (
       <button key={k} onClick={() => setTab(k)}
         style={{ flex: 1, border: 'none', background: 'transparent', padding: '8px 0 10px', cursor: 'pointer', color: active ? C.primary : C.muted,
           fontWeight: active ? 700 : 500, fontSize: 12, borderTop: `3px solid ${active ? C.yellow : 'transparent'}` }}>
-        <div style={{ fontSize: 20 }}>{icon}</div>{label}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}><Icon size={22} /></div>{label}
       </button>
     );
   };

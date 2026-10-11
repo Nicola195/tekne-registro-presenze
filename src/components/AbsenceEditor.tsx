@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Session, AssenzaTipo, ASSENZE, newId, round2, dayLabelLong } from '../model';
 import { C, S, chip, useWide } from '../ui';
 import { HourCounter } from './HourCounter';
+import { IconClose } from './Icons';
 
 interface Props {
   date: string;
@@ -29,7 +30,7 @@ export function AbsenceEditor({ date, initial, onSave, onDelete, onClose }: Prop
             <div style={{ fontWeight: 700, fontSize: 18 }}>{initial ? 'Modifica assenza' : 'Registra assenza'}</div>
             <div style={{ ...S.muted, textTransform: 'capitalize' }}>{dayLabelLong(date)}</div>
           </div>
-          <button style={S.iconBtn} onClick={onClose} aria-label="Chiudi">✕</button>
+          <button style={{ ...S.iconBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} aria-label="Chiudi"><IconClose /></button>
         </div>
 
         <span style={S.label}>Tipo di assenza</span>

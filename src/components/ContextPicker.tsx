@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Operator, Nominativo, nomeCompleto } from '../model';
 import { C, S } from '../ui';
+import { IconPerson, IconChild, IconGear, IconProps } from './Icons';
 
 export type Ctx = 'operatore' | 'utenza' | 'amministrazione';
 
@@ -10,10 +11,10 @@ export function ModePicker({ operators, nominativi, onChoose }: {
   nominativi: Nominativo[];
   onChoose: (ctx: Ctx) => void;
 }) {
-  const tile = (ctx: Ctx, title: string, sub: string, accent: string, icon: string) => (
+  const tile = (ctx: Ctx, title: string, sub: string, accent: string, Icon: (p: IconProps) => React.ReactElement) => (
     <button key={ctx} onClick={() => onChoose(ctx)}
       style={{ ...S.card, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', textAlign: 'left', borderLeft: `5px solid ${accent}`, width: '100%' }}>
-      <div style={{ width: 44, height: 44, borderRadius: 999, background: accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{icon}</div>
+      <div style={{ width: 44, height: 44, borderRadius: 999, background: accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon size={22} color="#fff" /></div>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontWeight: 700, fontSize: 16, color: C.text }}>{title}</div>
         <div style={S.muted}>{sub}</div>
@@ -29,9 +30,9 @@ export function ModePicker({ operators, nominativi, onChoose }: {
         <div style={{ ...S.muted, marginTop: 2 }}>Scegli la modalità. Potrai cambiarla in ogni momento dal pulsante in alto a destra.</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-        {tile('operatore', 'Per operatore', `Presenze, riepilogo ed estrazioni di un operatore · ${operators.length} disponibili`, C.primary, '👤')}
-        {tile('utenza', 'Per utenza', `Ore e report famiglia di un'utenza · ${nominativi.length} disponibili`, C.conc, '🧒')}
-        {tile('amministrazione', 'Amministrazione', 'Anagrafiche (utenze, operatori) e gestione amministrativa', C.primaryDark, '⚙')}
+        {tile('operatore', 'Per operatore', `Presenze, riepilogo ed estrazioni di un operatore · ${operators.length} disponibili`, C.primary, IconPerson)}
+        {tile('utenza', 'Per utenza', `Ore e report famiglia di un'utenza · ${nominativi.length} disponibili`, C.conc, IconChild)}
+        {tile('amministrazione', 'Amministrazione', 'Anagrafiche (utenze, operatori) e gestione amministrativa', C.primaryDark, IconGear)}
       </div>
     </div>
   );

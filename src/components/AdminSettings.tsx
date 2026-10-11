@@ -5,6 +5,7 @@ import { NominativoEditor } from './NominativoEditor';
 import { OperatorEditor } from './OperatorEditor';
 import { seg } from './PeriodPicker';
 import { AccessiView } from './AccessiView';
+import { IconEdit, IconTrash } from './Icons';
 
 interface Props {
   operators: Operator[];
@@ -115,8 +116,8 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
             <div>{fmtH(totalNom(n.name))}</div>
             <div style={{ fontSize: 11 }}>{n.operators.length ? `${n.operators.length} op.` : <span style={{ color: C.extra }}>non assoc.</span>}</div>
           </div>
-          <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={(e) => { e.stopPropagation(); setEditing(n); }} title="Scheda">✎</button>
-          <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={(e) => { e.stopPropagation(); removeNom(n.name); }} title="Rimuovi">🗑</button>
+          <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={(e) => { e.stopPropagation(); setEditing(n); }} title="Scheda"><IconEdit /></button>
+          <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={(e) => { e.stopPropagation(); removeNom(n.name); }} title="Rimuovi"><IconTrash /></button>
         </div>
       ))}
       {nominativi.length === 0 && <div style={S.muted}>Nessuna utenza. Aggiungine una con "Nuova utenza".</div>}
@@ -139,8 +140,8 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
               <div style={{ fontWeight: 700 }}>{o.name} <span style={{ ...S.muted, fontWeight: 400 }}>· {o.ruolo}</span></div>
               <div style={S.muted}>{fmtH(totalOp(o.id))} registrate · {nAssoc} {nAssoc === 1 ? 'utenza seguita' : 'utenze seguite'}</div>
             </div>
-            <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={(e) => { e.stopPropagation(); setEditingOp(o); }} title="Scheda">✎</button>
-            <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={(e) => { e.stopPropagation(); removeOp(o); }} title="Rimuovi">🗑</button>
+            <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={(e) => { e.stopPropagation(); setEditingOp(o); }} title="Scheda"><IconEdit /></button>
+            <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={(e) => { e.stopPropagation(); removeOp(o); }} title="Rimuovi"><IconTrash /></button>
           </div>
         );
       })}
@@ -168,8 +169,8 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
             />
             <span style={{ color: C.muted, fontSize: 13 }}>€/ora</span>
           </div>
-          <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={() => renameVoce(t)} title="Rinomina">✎</button>
-          <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={() => removeVoce(t.nome)} title="Rimuovi">🗑</button>
+          <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={() => renameVoce(t)} title="Rinomina"><IconEdit /></button>
+          <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={() => removeVoce(t.nome)} title="Rimuovi"><IconTrash /></button>
         </div>
       ))}
       {tariffe.length === 0 && <div style={S.muted}>Nessuna voce definita: aggiungine almeno una, altrimenti operatori e utenze non potranno indicare la terapia.</div>}

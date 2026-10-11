@@ -5,6 +5,7 @@ import {
 } from '../model';
 import { describeExtra } from '../reports';
 import { C, S } from '../ui';
+import { IconNote, IconClock, IconCover } from './Icons';
 
 const sumH = (l: Session[]) => round2(l.reduce((a, s) => a + s.hours, 0));
 
@@ -69,10 +70,10 @@ function SessionRow({ s, operators, onClick, actions }: {
         ) : (
           <>
             <span style={{ fontWeight: 700 }}>{s.names.join(' + ')}</span>
-            {s.extraNames?.length ? <div style={{ fontSize: 12, color: C.extra }}>↺ {describeExtra(s, operators)}</div> : null}
+            {s.extraNames?.length ? <div style={{ fontSize: 12, color: C.extra, display: 'flex', alignItems: 'center', gap: 4 }}><IconCover color={C.extra} /> {describeExtra(s, operators)}</div> : null}
           </>
         )}
-        {s.note && <div style={{ ...S.muted, fontSize: 12 }}>📝 {s.note}</div>}
+        {s.note && <div style={{ ...S.muted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><IconNote /> {s.note}</div>}
       </div>
       {actions}
       {actions && <span style={{ color: C.border }}>|</span>}
@@ -136,7 +137,7 @@ export function DayList({ sessions, operators, singleDate, onJumpDay, onEditSess
             {byFascia(d.list).map((g) => (
               <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, paddingBottom: 2, borderBottom: `1px dashed ${C.border}` }}>
-                  <span>🕒</span>{g.label}
+                  <IconClock />{g.label}
                 </div>
                 {g.items.map((s) => (
                   <SessionRow key={s.id} s={s} operators={operators} onClick={onEditSession ? () => onEditSession(s) : undefined} actions={renderActions?.(s)} />

@@ -1,52 +1,14 @@
 import type React from 'react';
 import { useState } from 'react';
-import { Operator } from '../model';
 import { ENTE, LOGO_PNG } from '../branding';
 import { C, S } from '../ui';
-
-export const ADMIN_ID = 'admin';
+import { IconClose } from './Icons';
 
 export const LogoBox = ({ size = 40 }: { size?: number }) => (
   <div style={{ width: size, height: size, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
     <img src={LOGO_PNG} alt="TEKNE" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
   </div>
 );
-
-/** Schermata di accesso: scelta del profilo (amministrazione o operatrice). */
-export function LoginView({ operators, onLogin }: { operators: Operator[]; onLogin: (id: string) => void }) {
-  const tile = (key: string, title: string, sub: string, accent: string, icon: string): React.ReactNode => (
-    <button key={key} onClick={() => onLogin(key)}
-      style={{ ...S.card, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', borderLeft: `5px solid ${accent}`, width: '100%' }}>
-      <div style={{ width: 40, height: 40, borderRadius: 999, background: accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 16, color: C.text }}>{title}</div>
-        <div style={S.muted}>{sub}</div>
-      </div>
-    </button>
-  );
-
-  return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, boxSizing: 'border-box',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>
-      <div style={{ width: '100%', maxWidth: 460 }}>
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
-          <img src={LOGO_PNG} alt="TEKNE" style={{ width: 110, height: 110, objectFit: 'contain' }} />
-          <div style={{ fontSize: 24, fontWeight: 800, color: C.primary, marginTop: 8 }}>Registro Ore</div>
-          <div style={{ ...S.muted, marginTop: 2 }}>{ENTE.nome}</div>
-        </div>
-        <div style={{ ...S.card, borderTop: `5px solid ${C.yellow}` }}>
-          <div style={S.h2}>Accedi come</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {operators.map((o) => tile(o.id, o.name, o.ruolo, C.primary, o.name.charAt(0).toUpperCase()))}
-            {operators.length === 0 && <div style={S.muted}>Nessuna operatrice configurata: accedi come amministrazione per aggiungerle.</div>}
-            <div style={{ height: 1, background: C.border, margin: '6px 0' }} />
-            {tile(ADMIN_ID, 'Amministrazione', 'Impostazioni, consultazione e report', C.conc, '⚙')}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 interface HeaderProps {
   wide: boolean;
@@ -110,7 +72,7 @@ function InformativaModal({ onClose }: { onClose: () => void }) {
       <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg, width: '100%', maxWidth: 660, borderRadius: 16, padding: '18px 20px 24px', boxSizing: 'border-box', borderTop: `5px solid ${C.yellow}`, margin: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontWeight: 800, fontSize: 18, color: C.primary }}>Informativa</div>
-          <button style={S.iconBtn} onClick={onClose} aria-label="Chiudi">✕</button>
+          <button style={{ ...S.iconBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} aria-label="Chiudi"><IconClose /></button>
         </div>
 
         <Sec t={ENTE.nome}>

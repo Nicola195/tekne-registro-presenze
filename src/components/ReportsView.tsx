@@ -5,6 +5,7 @@ import { exportOrePerNominativo, exportRegistro, exportFamiglia } from '../repor
 import { errMsg } from '../store';
 import { C, S, useWide } from '../ui';
 import { PeriodCard, PeriodState, toPeriod } from './PeriodPicker';
+import { IconCalendar, IconReceipt, IconFamily, IconProps } from './Icons';
 
 interface Props {
   period: PeriodState;
@@ -60,10 +61,10 @@ export function ReportsView({ period, setPeriod, sessions, nominativi, operators
   );
 
   const rowCard = (
-    icon: string, title: string, desc: string, accent: string, action: React.ReactNode, disabled?: boolean,
+    Icon: (p: IconProps) => React.ReactElement, title: string, desc: string, accent: string, action: React.ReactNode, disabled?: boolean,
   ): React.ReactNode => (
     <div style={{ ...S.card, marginBottom: 10, borderLeft: `5px solid ${accent}`, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', opacity: disabled ? 0.6 : 1 }}>
-      <div style={{ fontSize: 26, flexShrink: 0 }}>{icon}</div>
+      <div style={{ flexShrink: 0, display: 'flex' }}><Icon size={26} color={accent} /></div>
       <div style={{ flex: '1 1 260px', minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 16 }}>{title}</div>
         <div style={{ ...S.muted, marginTop: 3 }}>{desc}</div>
@@ -80,10 +81,10 @@ export function ReportsView({ period, setPeriod, sessions, nominativi, operators
       {mode === 'operatore' && (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, margin: '16px 2px 8px' }}>Report dell'operatore</div>
-          {rowCard('📅', 'Registro ore lavorate',
+          {rowCard(IconCalendar, 'Registro ore lavorate',
             'Elenco delle giornate lavorate con fasce orarie di entrata/uscita, nominativi seguiti, tipo di intervento e totale ore. Una settimana per pagina, con totale settimanale e del periodo.',
             C.conc, dlBtn('r', 'Registro', C.conc, !viewOp || !ms.length, () => exportRegistro(sessions, viewOp!, operators, p)), !viewOp || !ms.length)}
-          {rowCard('🧾', 'Ore per nominativo',
+          {rowCard(IconReceipt, 'Ore per nominativo',
             'Per l\'ufficio pagamenti: ore totali di ogni nominativo seguito dall\'operatore (individuali, in contemporanea, extra) e griglia giorno per giorno, una settimana per pagina.',
             C.primary, dlBtn('n', 'Prospetto', C.primary, !viewOp || !ms.length, () => exportOrePerNominativo(sessions, viewOp!, nominativi, p)), !viewOp || !ms.length)}
           {viewOp && !ms.length && <div style={{ ...S.muted, margin: '0 2px 4px', color: C.extra }}>Nessuna ora dell'operatore nel periodo selezionato.</div>}
@@ -96,7 +97,7 @@ export function ReportsView({ period, setPeriod, sessions, nominativi, operators
           <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, margin: '16px 2px 8px' }}>Report per la famiglia</div>
           <div style={{ ...S.card, marginBottom: 10, borderLeft: `5px solid ${C.yellow}` }}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 26 }}>👪</div>
+              <div style={{ display: 'flex' }}><IconFamily size={26} color={C.primaryDark} /></div>
               <div style={{ flex: '1 1 260px', minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Riepilogo mensile per la famiglia</div>
                 <div style={{ ...S.muted, marginTop: 3 }}>
@@ -114,7 +115,7 @@ export function ReportsView({ period, setPeriod, sessions, nominativi, operators
         </>
       )}
 
-      {msg && <div style={{ marginTop: 8, fontSize: 14, color: msg.ok ? C.primary : C.danger, fontWeight: 600 }}>{msg.ok ? '✓ ' : '⚠ '}{msg.text}</div>}
+      {msg && <div style={{ marginTop: 8, fontSize: 14, color: msg.ok ? C.primary : C.danger, fontWeight: 600 }}>{msg.text}</div>}
       <div style={{ height: wide ? 10 : 70 }} />
     </div>
   );

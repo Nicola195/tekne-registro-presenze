@@ -4,6 +4,7 @@ import { Session, Operator, Nominativo, newId, fmtH, endTime, round2, dayLabelLo
 import { C, S, chip, badge, useWide } from '../ui';
 import { HourCounter } from './HourCounter';
 import { MultiSelect } from './MultiSelect';
+import { IconClose } from './Icons';
 
 interface Props {
   date: string;
@@ -79,7 +80,7 @@ export function SessionEditor({ date, initial, opId, nominativi, colleagues, voc
             <div style={{ fontWeight: 700, fontSize: 18 }}>{initial ? 'Modifica ore lavorate' : 'Registra ore lavorate'}</div>
             <div style={{ ...S.muted, textTransform: 'capitalize' }}>{dayLabelLong(date)}</div>
           </div>
-          <button style={S.iconBtn} onClick={onClose} aria-label="Chiudi">✕</button>
+          <button style={{ ...S.iconBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} aria-label="Chiudi"><IconClose /></button>
         </div>
 
         {/* Fascia oraria (sx) + Ore lavorate (dx) affiancate */}
