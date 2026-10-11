@@ -7,7 +7,7 @@ import { SessionEditor } from './SessionEditor';
 import { AbsenceEditor } from './AbsenceEditor';
 import { DayList } from './DayList';
 import { StatsSection, Separator } from './Stats';
-import { PeriodCard, PeriodState, OperatorCard, toPeriod } from './PeriodPicker';
+import { PeriodCard, PeriodState, toPeriod } from './PeriodPicker';
 
 interface Props {
   period: PeriodState;
@@ -82,7 +82,6 @@ export function DayView({ period, setPeriod, sessions, opId, nominativi, operato
 
   return (
     <div>
-      {!isAdmin && <OperatorCard operators={operators} viewOp={operators.find((o) => o.id === opId)} nominativi={nominativi} />}
       <PeriodCard value={period} onChange={setPeriod} unlocked={unlocked} isAdmin={isAdmin} onToggleUnlock={onToggleUnlock} />
 
       {giorno && nonLav && (
