@@ -250,9 +250,3 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
     </div>
   );
 }
-{saveNom}
-        />
-      )}
-    </div>
-  );
-}
