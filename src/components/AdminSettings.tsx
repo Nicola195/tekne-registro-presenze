@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Session, Operator, Nominativo, Ruolo, RUOLI, TariffaVoce, fmtH, round2, newId, nomeCompleto, genitoriLabel } from '../model';
-import { C, S, chip, useWide } from '../ui';
+import { Session, Operator, Nominativo, TariffaVoce, fmtH, round2, nomeCompleto, genitoriLabel } from '../model';
+import { C, S, useWide } from '../ui';
 import { NominativoEditor } from './NominativoEditor';
+import { OperatorEditor } from './OperatorEditor';
 import { seg } from './PeriodPicker';
 import { AccessiView } from './AccessiView';
 
@@ -15,11 +16,16 @@ interface Props {
   onTariffe: (t: TariffaVoce[]) => void;
 }
 
-type Sub = 'utenze' | 'operatori' | 'associazioni' | 'tariffe' | 'accessi';
+// Due sezioni "padre", ognuna con le proprie sezioni "figlie".
+type Parent = 'utenti' | 'amministrazione';
+type SubUtenti = 'utenze' | 'operatori';
+type SubAdmin = 'tariffe' | 'accessi';
 
 export function AdminSettings({ operators, nominativi, sessions, tariffe, onOperators, onNominativi, onTariffe }: Props) {
   const wide = useWide();
-  const [sub, setSub] = useState<Sub>('utenze');
+  const [parent, setParent] = useState<Parent>('utenti');
+  const [subUtenti, setSubUtenti] = useState<SubUtenti>('utenze');
+  const [subAdmin, setSubAdmin] = useState<SubAdmin>('tariffe');
 
   const totalNom = (n: string) => round2(sessions.filter((s) => s.names.includes(n)).reduce((a, s) => a + s.hours, 0));
   const totalOp = (id: string) => round2(sessions.filter((s) => s.operatorId === id).reduce((a, s) => a + s.hours, 0));
@@ -41,20 +47,21 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
       onNominativi(nominativi.filter((x) => x.name !== name));
   };
 
-  // ---- Operatori ----
-  const [newOp, setNewOp] = useState('');
-  const [newRuolo, setNewRuolo] = useState<Ruolo>('Educatrice');
-  const addOp = () => {
-    const name = newOp.trim();
-    if (!name) return;
-    if (operators.some((o) => o.name.toLowerCase() === name.toLowerCase())) return void window.alert(`${name} è già presente.`);
-    onOperators([...operators, { id: `op-${newId()}`, name, ruolo: newRuolo }]);
-    setNewOp('');
-  };
-  const setRuolo = (id: string, ruolo: Ruolo) => onOperators(operators.map((o) => (o.id === id ? { ...o, ruolo } : o)));
-  const renameOp = (o: Operator) => {
-    const name = window.prompt('Cognome e nome', o.name)?.trim();
-    if (name) onOperators(operators.map((x) => (x.id === o.id ? { ...x, name } : x)));
+  // ---- Operatori (scheda con dati, ruolo e utenze seguite) ----
+  const [editingOp, setEditingOp] = useState<Operator | 'new' | null>(null);
+  const saveOperator = (op: Operator, utenzeSeguite: string[]) => {
+    const exists = operators.some((o) => o.id === op.id);
+    onOperators(exists ? operators.map((o) => (o.id === op.id ? op : o)) : [...operators, op]);
+    // applica le associazioni: imposta l'appartenenza di questo operatore su ogni utenza
+    const nextNoms = nominativi.map((n) => {
+      const should = utenzeSeguite.includes(n.name);
+      const has = n.operators.includes(op.id);
+      if (should && !has) return { ...n, operators: [...n.operators, op.id] };
+      if (!should && has) return { ...n, operators: n.operators.filter((x) => x !== op.id) };
+      return n;
+    });
+    onNominativi(nextNoms);
+    setEditingOp(null);
   };
   const removeOp = (o: Operator) => {
     if (sessions.some((s) => s.operatorId === o.id)) return void window.alert(`${o.name} ha ore registrate: non può essere rimosso (lo storico resterebbe senza intestatario).`);
@@ -62,17 +69,6 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
     onOperators(operators.filter((x) => x.id !== o.id));
     onNominativi(nominativi.map((n) => ({ ...n, operators: n.operators.filter((id) => id !== o.id) })));
   };
-
-  // ---- Associazioni ----
-  const [filtroOp, setFiltroOp] = useState('');
-  const [filtroAnom, setFiltroAnom] = useState('');
-  const assocOps = filtroOp ? operators.filter((o) => o.id === filtroOp) : operators;
-  const toggleAssign = (nom: string, opId: string) =>
-    onNominativi(
-      nominativi.map((n) =>
-        n.name === nom ? { ...n, operators: n.operators.includes(opId) ? n.operators.filter((x) => x !== opId) : [...n.operators, opId] } : n,
-      ),
-    );
 
   // ---- Tariffe (voci di terapia + tariffa oraria) ----
   const [newVoce, setNewVoce] = useState('');
@@ -97,16 +93,6 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
       : `Rimuovere la voce "${nome}"?`;
     if (window.confirm(msg)) onTariffe(tariffe.filter((t) => t.nome !== nome));
   };
-
-  const ruoloSelect = (value: Ruolo, onChange: (r: Ruolo) => void) => (
-    <select style={{ ...S.input, width: 'auto', padding: '7px 8px', fontSize: 14 }} value={value} onChange={(e) => onChange(e.target.value as Ruolo)}>
-      {RUOLI.map((r) => (
-        <option key={r} value={r}>{r}</option>
-      ))}
-    </select>
-  );
-
-  const subTabs: [Sub, string][] = [['utenze', `Utenze (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`], ['associazioni', 'Associazioni'], ['tariffe', `Tariffe (${tariffe.length})`], ['accessi', 'Accessi']];
 
   // ---------- UTENZE ----------
   const utenzeView = (
@@ -140,57 +126,25 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
   // ---------- OPERATORI ----------
   const operatoriView = (
     <div style={S.card}>
-      <div style={S.h2}>Operatori</div>
-      <div style={{ ...S.muted, marginBottom: 8 }}>Educatori e psicologi che registrano le ore. Le associazioni con le utenze si gestiscono nella scheda "Associazioni".</div>
-      {operators.map((o) => (
-        <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-            <div style={{ fontWeight: 600 }}>{o.name}</div>
-            <div style={S.muted}>{fmtH(totalOp(o.id))} registrate · {nominativi.filter((n) => n.operators.includes(o.id)).length} utenze</div>
-          </div>
-          {ruoloSelect(o.ruolo, (r) => setRuolo(o.id, r))}
-          <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={() => renameOp(o)} title="Rinomina">✎</button>
-          <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={() => removeOp(o)} title="Rimuovi">🗑</button>
-        </div>
-      ))}
-      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <input style={{ ...S.input, flex: '1 1 180px', width: 'auto' }} value={newOp} placeholder="Cognome e nome" onChange={(e) => setNewOp(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addOp()} />
-        {ruoloSelect(newRuolo, setNewRuolo)}
-        <button style={S.btn} onClick={addOp}>Aggiungi</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={S.h2}>Operatori</div>
+        <button style={S.btn} onClick={() => setEditingOp('new')}>+ Nuovo operatore</button>
       </div>
-    </div>
-  );
-
-  // ---------- ASSOCIAZIONI ----------
-  const assocView = (
-    <div style={S.card}>
-      <div style={S.h2}>Associazioni utenze ↔ operatori</div>
-      <div style={{ ...S.muted, marginBottom: 10 }}>
-        Tocca un operatore sotto ogni utenza per associarlo o rimuoverlo. Un'utenza può essere associata a più operatori. Le ore registrate su utenze non associate risultano <b>extra</b>.
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-        <select style={{ ...S.input, width: 'auto', flex: '1 1 200px' }} value={filtroOp} onChange={(e) => setFiltroOp(e.target.value)}>
-          <option value="">Tutti gli operatori</option>
-          {operators.map((o) => (
-            <option key={o.id} value={o.id}>Filtra: {o.name}</option>
-          ))}
-        </select>
-        <input style={{ ...S.input, flex: '1 1 160px', width: 'auto' }} placeholder="Cerca utenza…" value={filtroAnom} onChange={(e) => setFiltroAnom(e.target.value)} />
-      </div>
-      {[...nominativi].sort((a, b) => a.name.localeCompare(b.name)).filter((n) => nomeCompleto(n).toLowerCase().includes(filtroAnom.toLowerCase()))
-        .filter((n) => !filtroOp || n.operators.includes(filtroOp))
-        .map((n) => (
-          <div key={n.name} style={{ padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>{nomeCompleto(n)}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {assocOps.map((o) => (
-                <button key={o.id} style={{ ...chip(n.operators.includes(o.id)), padding: '5px 10px', fontSize: 12 }} onClick={() => toggleAssign(n.name, o.id)}>{o.name}</button>
-              ))}
-              {n.operators.length === 0 && !filtroOp && <span style={{ fontSize: 12, color: C.extra, alignSelf: 'center' }}>non associata</span>}
+      <div style={{ ...S.muted, marginBottom: 8 }}>Educatori e psicologi che registrano le ore. Apri la scheda per modificare dati, ruolo e utenze seguite.</div>
+      {operators.map((o) => {
+        const nAssoc = nominativi.filter((n) => n.operators.includes(o.id)).length;
+        return (
+          <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => setEditingOp(o)}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700 }}>{o.name} <span style={{ ...S.muted, fontWeight: 400 }}>· {o.ruolo}</span></div>
+              <div style={S.muted}>{fmtH(totalOp(o.id))} registrate · {nAssoc} {nAssoc === 1 ? 'utenza seguita' : 'utenze seguite'}</div>
             </div>
+            <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={(e) => { e.stopPropagation(); setEditingOp(o); }} title="Scheda">✎</button>
+            <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={(e) => { e.stopPropagation(); removeOp(o); }} title="Rimuovi">🗑</button>
           </div>
-        ))}
-      {nominativi.length === 0 && <div style={S.muted}>Aggiungi prima le utenze dalla scheda "Utenze".</div>}
+        );
+      })}
+      {operators.length === 0 && <div style={S.muted}>Nessun operatore. Aggiungine uno con "Nuovo operatore".</div>}
     </div>
   );
 
@@ -226,18 +180,45 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
     </div>
   );
 
+  // ---------- Navigazione a due livelli ----------
+  const parentTabs: [Parent, string][] = [['utenti', 'Utenti del sistema'], ['amministrazione', 'Amministrazione']];
+  const utentiTabs: [SubUtenti, string][] = [['utenze', `Utenze (${nominativi.length})`], ['operatori', `Operatori (${operators.length})`]];
+  const adminTabs: [SubAdmin, string][] = [['tariffe', `Tariffe (${tariffe.length})`], ['accessi', 'Gestione accessi']];
+  const parentDesc = parent === 'utenti'
+    ? 'Anagrafiche del sistema: utenze (bambini e ragazzi) e operatori (educatori e psicologi).'
+    : 'Funzioni riservate all’amministrazione: tariffe delle voci di terapia e gestione degli accessi.';
+
+  const tabBar = (tabs: [string, string][], active: string, onSel: (k: string) => void, accent = C.primary) => (
+    <div style={{ display: 'flex', background: '#ebede4', borderRadius: 10, padding: 3, maxWidth: 680, flexWrap: wide ? 'nowrap' : 'wrap' }}>
+      {tabs.map(([k, l]) => (
+        <button key={k} style={{ ...seg(active === k, accent), flex: wide ? 1 : '1 1 46%' }} onClick={() => onSel(k)}>{l}</button>
+      ))}
+    </div>
+  );
+
   return (
     <div>
-      <div style={{ display: 'flex', background: '#ebede4', borderRadius: 10, padding: 3, marginBottom: 12, maxWidth: 680, flexWrap: wide ? 'nowrap' : 'wrap' }}>
-        {subTabs.map(([k, l]) => (
-          <button key={k} style={{ ...seg(sub === k), flex: wide ? 1 : '1 1 46%' }} onClick={() => setSub(k)}>{l}</button>
-        ))}
-      </div>
-      {sub === 'utenze' && utenzeView}
-      {sub === 'operatori' && operatoriView}
-      {sub === 'associazioni' && assocView}
-      {sub === 'tariffe' && tariffeView}
-      {sub === 'accessi' && <AccessiView operators={operators} onOperators={onOperators} />}
+      {/* Sezioni padre */}
+      {tabBar(parentTabs as [string, string][], parent, (k) => setParent(k as Parent), C.conc)}
+      <div style={{ ...S.muted, margin: '8px 2px 12px' }}>{parentDesc}</div>
+
+      {/* Sezioni figlie */}
+      {parent === 'utenti' && (
+        <>
+          {tabBar(utentiTabs as [string, string][], subUtenti, (k) => setSubUtenti(k as SubUtenti))}
+          <div style={{ height: 12 }} />
+          {subUtenti === 'utenze' && utenzeView}
+          {subUtenti === 'operatori' && operatoriView}
+        </>
+      )}
+      {parent === 'amministrazione' && (
+        <>
+          {tabBar(adminTabs as [string, string][], subAdmin, (k) => setSubAdmin(k as SubAdmin))}
+          <div style={{ height: 12 }} />
+          {subAdmin === 'tariffe' && tariffeView}
+          {subAdmin === 'accessi' && <AccessiView operators={operators} onOperators={onOperators} />}
+        </>
+      )}
 
       {editing && (
         <NominativoEditor
@@ -245,6 +226,15 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
           esistenti={nominativi.map((n) => n.name)}
           onClose={() => setEditing(null)}
           onSave={saveNom}
+        />
+      )}
+      {editingOp && (
+        <OperatorEditor
+          initial={editingOp === 'new' ? undefined : editingOp}
+          operators={operators}
+          nominativi={nominativi}
+          onClose={() => setEditingOp(null)}
+          onSave={saveOperator}
         />
       )}
     </div>
