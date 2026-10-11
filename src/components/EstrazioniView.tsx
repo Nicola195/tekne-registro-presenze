@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import { Session, Operator, Nominativo, TariffaVoce } from '../model';
-import { exportTutteFamiglie, exportOrePerNominativoTutti, exportRegistroTuttiZip } from '../reports';
+import { exportFamiglieZip, exportOrePerNominativoZip, exportRegistroZip } from '../reports';
 import { errMsg } from '../store';
 import { PeriodCard, PeriodState, initialPeriod, toPeriod } from './PeriodPicker';
 import { C, S, useWide } from '../ui';
@@ -61,16 +61,16 @@ export function EstrazioniView({ sessions, operators, nominativi, tariffe, unloc
 
       <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, margin: '16px 2px 8px' }}>Report per le famiglie</div>
       {rowCard(IconFamily, 'Riepilogo per tutte le famiglie',
-        'Un unico PDF con una pagina per ciascuna utenza con ore nel periodo. Riservatezza mantenuta: nessun nome di altri bambini, nessuna annotazione libera.',
-        C.yellow, dlBtn('fam', 'Scarica PDF', C.primary, () => exportTutteFamiglie(sessions, operators, nominativi, p, tariffe)))}
+        'Un file ZIP con un PDF separato per ciascuna utenza con ore nel periodo. Riservatezza mantenuta: nessun nome di altri bambini, nessuna annotazione libera.',
+        C.yellow, dlBtn('fam', 'Scarica ZIP', C.primary, () => exportFamiglieZip(sessions, operators, nominativi, p, tariffe)))}
 
       <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, margin: '18px 2px 8px' }}>Report di tutti gli operatori</div>
       {rowCard(IconReceipt, 'Ore per nominativo — tutti gli operatori',
-        'Un unico PDF con una sezione per ciascun operatore (per l\'ufficio pagamenti): ore totali per nominativo e griglie settimanali.',
-        C.primary, dlBtn('nom', 'Scarica PDF', C.primary, () => exportOrePerNominativoTutti(sessions, operators, nominativi, p)))}
+        'Un file ZIP con un PDF separato per ciascun operatore (per l\'ufficio pagamenti): ore totali per nominativo e griglie settimanali.',
+        C.primary, dlBtn('nom', 'Scarica ZIP', C.primary, () => exportOrePerNominativoZip(sessions, operators, nominativi, p)))}
       {rowCard(IconCalendar, 'Registro ore — tutti gli operatori',
         'Un file ZIP con un PDF separato per ciascun operatore: il registro delle giornate lavorate, una settimana per pagina.',
-        C.conc, dlBtn('reg', 'Scarica ZIP', C.conc, () => exportRegistroTuttiZip(sessions, operators, p)))}
+        C.conc, dlBtn('reg', 'Scarica ZIP', C.conc, () => exportRegistroZip(sessions, operators, p)))}
 
       {msg && <div style={{ marginTop: 10, fontSize: 14, color: msg.ok ? C.primary : C.danger, fontWeight: 600 }}>{msg.text}</div>}
       <div style={{ height: wide ? 10 : 40 }} />

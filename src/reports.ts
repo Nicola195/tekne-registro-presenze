@@ -2,7 +2,7 @@ import {
   Session, Operator, Nominativo, Period, TariffaVoce, perName, daysBetween, weekday, dateIT, fascia, isConc, isLavoro, round2, parseISO, opName,
   attivitaLabel, pad, weekStart, fmtH, fmtEuro, importoSessione, nomeCompleto, genitoriLabel,
 } from './model';
-import { Cell, Col, Section, saveReport, writeReport, downloadBlob } from './report-pdf';
+import { Cell, Col, Section, Report, saveReport, writeReport, downloadBlob } from './report-pdf';
 import { annoEducativo } from './branding';
 
 const fmtNum = (h: number) => h.toLocaleString('it-IT', { maximumFractionDigits: 2 });
@@ -207,41 +207,53 @@ export async function exportFamiglia(sessions: Session[], operators: Operator[],
   await saveReport({ file: `Riepilogo ore - ${nome} - ${p.fileLabel}`, ...famReport(p), sections: [sec] });
 }
 
-export async function exportTutteFamiglie(sessions: Session[], operators: Operator[], nominativi: Nominativo[], p: Period, tariffe: TariffaVoce[]) {
-  const sections = nominativiNelPeriodo(sessions, p)
-    .map((n) => famigliaSection(sessions, operators, nominativi, n, p, tariffe))
-    .filter((s): s is Section => !!s);
-  if (!sections.length) throw new Error('Nessuna ora registrata nel periodo selezionato.');
-  await saveReport({ file: `Riepilogo ore famiglie - ${p.fileLabel}`, ...famReport(p), sections });
+// ---------- Estrazioni massive (solo amministrazione) ----------
+// Tutte producono uno ZIP con un PDF per famiglia/utenza o per operatore,
+// per evitare PDF unici troppo lunghi.
+
+interface ZipItem { file: string; report: Report; }
+
+/** Genera uno ZIP a partire da un elenco di report (un PDF per voce) e lo scarica. */
+async function zipReports(items: ZipItem[], zipName: string) {
+  if (!items.length) throw new Error('Nessuna ora registrata nel periodo selezionato.');
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  for (const it of items) {
+    zip.file(`${it.file}.pdf`, await writeReport(it.report).arrayBuffer());
+  }
+  const content = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(`${zipName}.zip`, content);
 }
 
-// ---------- Estrazioni massive (solo amministrazione) ----------
+/** Report per TUTTE le famiglie: ZIP con un PDF per utenza. */
+export async function exportFamiglieZip(sessions: Session[], operators: Operator[], nominativi: Nominativo[], p: Period, tariffe: TariffaVoce[]) {
+  const items: ZipItem[] = [];
+  for (const nome of nominativiNelPeriodo(sessions, p)) {
+    const sec = famigliaSection(sessions, operators, nominativi, nome, p, tariffe);
+    if (!sec) continue;
+    items.push({ file: `Riepilogo ore - ${nome} - ${p.fileLabel}`, report: { file: `Riepilogo ore - ${nome} - ${p.fileLabel}`, ...famReport(p), sections: [sec] } });
+  }
+  await zipReports(items, `Riepiloghi famiglie - ${p.fileLabel}`);
+}
 
-/** Ore per nominativo di TUTTI gli operatori, in un unico PDF con una sezione iniziale per operatore. */
-export async function exportOrePerNominativoTutti(sessions: Session[], operators: Operator[], nominativi: Nominativo[], p: Period) {
-  const sections: Section[] = [];
+/** Ore per nominativo di TUTTI gli operatori: ZIP con un PDF per operatore. */
+export async function exportOrePerNominativoZip(sessions: Session[], operators: Operator[], nominativi: Nominativo[], p: Period) {
+  const items: ZipItem[] = [];
   for (const op of [...operators].sort(byName)) {
     const os = oreOp(sessions, op.id, p);
     if (!os.length) continue;
-    sections.push(...oreNomSections(os, nominativi, p, undefined, `${op.name} – ${op.ruolo}`));
+    items.push({ file: `Ore per nominativo - ${op.name} - ${p.fileLabel}`, report: { file: `Ore per nominativo - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Riepilogo ore', op.name], right: ['Periodo', p.label] }, sections: oreNomSections(os, nominativi, p) } });
   }
-  if (!sections.length) throw new Error('Nessuna ora registrata nel periodo selezionato.');
-  await saveReport({ file: `Ore per nominativo - tutti gli operatori - ${p.fileLabel}`, anno: anno(p), meta: { center: `Ore per nominativo · ${p.mese || p.label}` }, sections });
+  await zipReports(items, `Ore per nominativo - tutti gli operatori - ${p.fileLabel}`);
 }
 
-/** Registro ore di TUTTI gli operatori: uno ZIP con un PDF per operatore. */
-export async function exportRegistroTuttiZip(sessions: Session[], operators: Operator[], p: Period) {
-  const JSZip = (await import('jszip')).default;
-  const zip = new JSZip();
-  let count = 0;
+/** Registro ore di TUTTI gli operatori: ZIP con un PDF per operatore. */
+export async function exportRegistroZip(sessions: Session[], operators: Operator[], p: Period) {
+  const items: ZipItem[] = [];
   for (const op of [...operators].sort(byName)) {
     const os = oreOp(sessions, op.id, p).sort(byTime);
     if (!os.length) continue;
-    const blob = writeReport({ file: `Registro ore - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Registro ore lavorate', op.name], right: ['Periodo', p.label] }, sections: registroSections(os, operators, p) });
-    zip.file(`Registro ore - ${op.name} - ${p.fileLabel}.pdf`, await blob.arrayBuffer());
-    count++;
+    items.push({ file: `Registro ore - ${op.name} - ${p.fileLabel}`, report: { file: `Registro ore - ${op.name} - ${p.fileLabel}`, anno: anno(p), meta: { left: ['Registro ore lavorate', op.name], right: ['Periodo', p.label] }, sections: registroSections(os, operators, p) } });
   }
-  if (!count) throw new Error('Nessuna ora registrata nel periodo selezionato.');
-  const content = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(`Registri ore - tutti gli operatori - ${p.fileLabel}.zip`, content);
+  await zipReports(items, `Registri ore - tutti gli operatori - ${p.fileLabel}`);
 }
