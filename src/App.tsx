@@ -10,7 +10,7 @@ import { AdminSettings } from './components/AdminSettings';
 import { PeriodState, initialPeriod } from './components/PeriodPicker';
 import { Header, Footer } from './components/Shell';
 import { Login } from './components/Login';
-import { ContextPicker, Ctx } from './components/ContextPicker';
+import { ModePicker, ListPicker, Ctx } from './components/ContextPicker';
 import { ContextCard } from './components/ContextCard';
 import { useAuth } from './auth';
 import { supabaseConfigured } from './supabase';
@@ -20,14 +20,14 @@ type Sync = 'loading' | 'ok' | 'saving' | 'error';
 
 const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 const EMPTY: AppData = { operators: [], nominativi: [], sessions: [], unlocked: [], tariffe: [] };
-const CTX_LS = 'registro-ore-ctx-v1';
+const CTX_LS = 'registro-ore-ctx-v2';
 
-function readCtx(): { ctx: Ctx | null; opId: string; nom: string } {
+function readCtx(): { mode: Ctx | null; sel: string } {
   try {
     const r = JSON.parse(localStorage.getItem(CTX_LS) || 'null');
-    if (r && typeof r === 'object') return { ctx: r.ctx ?? null, opId: r.opId || '', nom: r.nom || '' };
+    if (r && typeof r === 'object') return { mode: r.mode ?? null, sel: r.sel || '' };
   } catch { /* ignora */ }
-  return { ctx: null, opId: '', nom: '' };
+  return { mode: null, sel: '' };
 }
 
 const Centered = ({ children }: { children: React.ReactNode }) => (
@@ -43,12 +43,11 @@ export const App = () => {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodState>(initialPeriod);
 
-  // Contesto operativo (per l'amministrazione). ctx === null => pagina di scelta.
+  // Contesto operativo (amministrazione): modalità + selezione (id operatore o nome utenza).
   const persisted = readCtx();
-  const [ctx, setCtx] = useState<Ctx | null>(persisted.ctx);
-  const [viewOpId, setViewOpId] = useState<string>(persisted.opId);
-  const [viewNom, setViewNom] = useState<string>(persisted.nom);
-  const [tab, setTab] = useState<Tab>('giorno');
+  const [mode, setMode] = useState<Ctx | null>(persisted.mode);
+  const [sel, setSel] = useState<string>(persisted.sel);
+  const [tab, setTab] = useState<Tab>('riepilogo');
 
   const ref = useRef(data);
   ref.current = data;
@@ -71,30 +70,28 @@ export const App = () => {
     else { setData(EMPTY); setLoaded(false); }
   }, [ready, load]);
 
-  // Persistenza della scelta di contesto (solo UI, nessun dato sensibile).
+  // Persistenza della scelta di contesto (solo UI).
   useEffect(() => {
-    try { localStorage.setItem(CTX_LS, JSON.stringify({ ctx, opId: viewOpId, nom: viewNom })); } catch { /* ignora */ }
-  }, [ctx, viewOpId, viewNom]);
+    try { localStorage.setItem(CTX_LS, JSON.stringify({ mode, sel })); } catch { /* ignora */ }
+  }, [mode, sel]);
 
-  // Operatrice collegata al profilo (per gli operatori non amministratori).
+  // Operatrice collegata al profilo (operatori non amministratori).
   const me = useMemo(
     () => (auth.profile?.operatorId ? data.operators.find((o) => o.id === auth.profile!.operatorId) : undefined),
     [data.operators, auth.profile?.operatorId],
   );
 
-  // Contesto effettivo: per gli operatori è sempre "operatore"; per l'amministrazione dipende dalla scelta.
-  const effCtx: Ctx | null = isAdmin ? ctx : 'operatore';
-  const viewOp: Operator | undefined = isAdmin ? (ctx === 'operatore' ? data.operators.find((o) => o.id === viewOpId) : undefined) : me;
-  const viewNomObj: Nominativo | undefined = isAdmin && ctx === 'utenza' ? data.nominativi.find((n) => n.name === viewNom) : undefined;
+  // Contesto effettivo: gli operatori sono sempre in modalità "operatore" su sé stessi.
+  const effMode: Ctx | null = isAdmin ? mode : 'operatore';
+  const viewOp: Operator | undefined = isAdmin ? (mode === 'operatore' ? data.operators.find((o) => o.id === sel) : undefined) : me;
+  const viewNomObj: Nominativo | undefined = isAdmin && mode === 'utenza' ? data.nominativi.find((n) => n.name === sel) : undefined;
 
-  const enterCtx = (c: Ctx, id?: string) => {
-    setCtx(c);
-    if (c === 'operatore') { setViewOpId(id || ''); setTab('riepilogo'); }
-    else if (c === 'utenza') { setViewNom(id || ''); setTab('riepilogo'); }
-  };
-  const resetCtx = () => setCtx(null);
+  const chooseMode = (m: Ctx) => { setMode(m); setSel(''); setTab('riepilogo'); };
+  const chooseSel = (id: string) => { setSel(id); setTab('riepilogo'); };
+  const changeSelection = () => setSel('');   // card → torna alla lista (stessa modalità)
+  const switchMode = () => { setMode(null); setSel(''); }; // header → torna alla scelta modalità
 
-  const logout = () => { if (window.confirm('Vuoi uscire?')) { setCtx(null); auth.signOut(); } };
+  const logout = () => { if (window.confirm('Vuoi uscire?')) { setMode(null); setSel(''); auth.signOut(); } };
 
   const update = (next: AppData) => { ref.current = next; setData(next); };
 
@@ -133,8 +130,8 @@ export const App = () => {
 
   // Tab disponibili nel contesto corrente.
   const tabsFor = (): [Tab, string, string][] => {
-    if (effCtx === 'operatore') return [['giorno', isAdmin ? '👁' : '✏️', 'Presenze'], ['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Estrazioni']];
-    if (effCtx === 'utenza') return [['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Report famiglia']];
+    if (effMode === 'operatore') return [['giorno', isAdmin ? '👁' : '✏️', 'Presenze'], ['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Estrazioni']];
+    if (effMode === 'utenza') return [['riepilogo', '📊', 'Riepilogo'], ['estrazioni', '⬇️', 'Report famiglia']];
     return [];
   };
   const tabs = tabsFor();
@@ -174,33 +171,44 @@ export const App = () => {
   if (auth.phase !== 'ready') return <Login auth={auth} />;
   if (!loaded) return <Centered>Caricamento dati…</Centered>;
 
-  // ---------- Amministrazione senza contesto scelto: pagina di scelta ----------
-  if (isAdmin && !ctx) {
+  // ---------- Amministrazione: STEP 1 (modalità) e STEP 2 (lista) ----------
+  if (isAdmin && mode === null) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
         <Header wide={wide} onLogout={logout} />
         <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 32px', boxSizing: 'border-box' }}>
           {error && <div style={{ background: C.dangerSoft, color: C.danger, borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 14 }}>{error}</div>}
-          <ContextPicker operators={data.operators} nominativi={data.nominativi} onEnter={enterCtx} />
+          <ModePicker operators={data.operators} nominativi={data.nominativi} onChoose={chooseMode} />
+        </main>
+        <Footer wide={wide} />
+      </div>
+    );
+  }
+  if (isAdmin && (mode === 'operatore' || mode === 'utenza') && !sel) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
+        <Header wide={wide} onLogout={logout} onSwitchMode={switchMode} />
+        <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 32px', boxSizing: 'border-box' }}>
+          <ListPicker kind={mode} operators={data.operators} nominativi={data.nominativi} onPick={chooseSel} onBack={switchMode} />
         </main>
         <Footer wide={wide} />
       </div>
     );
   }
 
-  // Card di contesto in alto (per l'amministrazione è cliccabile e riporta alla scelta).
+  // Card di contesto in alto: operatore/utenza → cambia selezione; amministrazione → cambia modalità.
   const topCard =
-    effCtx === 'operatore' ? (
-      <ContextCard kind="operatore" operator={viewOp} utenzeCount={viewOp ? data.nominativi.filter((n) => n.operators.includes(viewOp.id)).length : 0} onClick={isAdmin ? resetCtx : undefined} />
-    ) : effCtx === 'utenza' ? (
-      <ContextCard kind="utenza" nominativo={viewNomObj} onClick={resetCtx} />
+    effMode === 'operatore' ? (
+      <ContextCard kind="operatore" operator={viewOp} utenzeCount={viewOp ? data.nominativi.filter((n) => n.operators.includes(viewOp.id)).length : 0} onClick={isAdmin ? changeSelection : undefined} />
+    ) : effMode === 'utenza' ? (
+      <ContextCard kind="utenza" nominativo={viewNomObj} onClick={changeSelection} />
     ) : (
-      <ContextCard kind="amministrazione" onClick={resetCtx} />
+      <ContextCard kind="amministrazione" onClick={switchMode} />
     );
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: font, display: 'flex', flexDirection: 'column' }}>
-      <Header wide={wide} nav={tabs.map(([k, i, l]) => navBtn(k, i, l))} onLogout={logout} />
+      <Header wide={wide} nav={tabs.map(([k, i, l]) => navBtn(k, i, l))} onLogout={logout} onSwitchMode={isAdmin ? switchMode : undefined} />
 
       <main style={{ flex: 1, width: '100%', maxWidth: 1440, margin: '0 auto', padding: wide ? '20px 24px 32px' : '12px 12px 90px', boxSizing: 'border-box' }}>
         {error && (
@@ -212,7 +220,7 @@ export const App = () => {
         {topCard}
 
         {/* ---- Contesto OPERATORE ---- */}
-        {effCtx === 'operatore' && (
+        {effMode === 'operatore' && (
           viewOp ? (
             <>
               {t === 'giorno' && (
@@ -236,7 +244,7 @@ export const App = () => {
         )}
 
         {/* ---- Contesto UTENZA ---- */}
-        {effCtx === 'utenza' && (
+        {effMode === 'utenza' && (
           viewNomObj ? (
             <>
               {t === 'riepilogo' && (
@@ -256,7 +264,7 @@ export const App = () => {
         )}
 
         {/* ---- Contesto AMMINISTRAZIONE ---- */}
-        {effCtx === 'amministrazione' && (
+        {effMode === 'amministrazione' && (
           <AdminSettings operators={data.operators} nominativi={data.nominativi} sessions={data.sessions} tariffe={data.tariffe}
             onOperators={onOperators} onNominativi={onNominativi} onTariffe={onTariffe} />
         )}
