@@ -1,0 +1,19 @@
+# Configurazione Supabase CLI — Registro Ore TEKNE
+# project_id = riferimento del progetto (lo stesso di --project-ref).
+project_id = "cafiokljsqjfanlsopqh"
+
+# -------------------------------------------------------------------
+# Edge Function "admin-users" (gestione utenze, solo amministrazione).
+#
+# verify_jwt = false: disattiva la verifica JWT A LIVELLO DI PIATTAFORMA.
+# NON è un indebolimento della sicurezza: senza questa riga la piattaforma
+# rifiuta la richiesta "preflight" OPTIONS del browser (che non porta header
+# di autenticazione) PRIMA che la funzione possa rispondere con le intestazioni
+# CORS → il browser segnala un errore CORS.
+#
+# La funzione fa comunque la PROPRIA verifica: legge il token dell'utente,
+# controlla che la sessione sia valida e che il chiamante abbia profiles.is_admin.
+# Senza un token valido di un amministratore, ogni azione viene rifiutata.
+# -------------------------------------------------------------------
+[functions.admin-users]
+verify_jwt = false
