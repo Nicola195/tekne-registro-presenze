@@ -44,6 +44,7 @@ export const App = () => {
   const [tab, setTab] = useState<Tab>('riepilogo');
   const [notifOpen, setNotifOpen] = useState(false);
   const notifAuto = useRef(false);
+  const periodInit = useRef(false);
 
   const ref = useRef(data);
   ref.current = data;
@@ -84,6 +85,15 @@ export const App = () => {
       if (notifCount > 0) setNotifOpen(true);
     }
   }, [ready, loaded, notifCount]);
+
+  // Default del selettore periodo, impostato una sola volta per sessione dopo il login:
+  // Giorno per l'operatore (per registrare subito), Mese per l'amministrazione (evidenza mensile).
+  useEffect(() => {
+    if (ready && loaded && !periodInit.current) {
+      periodInit.current = true;
+      setPeriod((pp) => ({ ...pp, mode: isAdmin ? 'mese' : 'giorno' }));
+    }
+  }, [ready, loaded, isAdmin]);
 
   // Contesto effettivo: gli operatori sono sempre in modalità "operatore" su sé stessi.
   const effMode: Ctx | null = isAdmin ? mode : 'operatore';
