@@ -9,13 +9,15 @@ interface Props {
   placeholder?: string;
   emptyText?: string;
   accent?: string;
+  label?: (o: string) => string; // etichetta visualizzata (default: il valore stesso)
 }
 
 /** Combolist a selezione multipla: pulsante che apre un pannello con ricerca e caselle. */
-export function MultiSelect({ options, selected, onToggle, placeholder = 'Seleziona…', emptyText, accent = C.primary }: Props) {
+export function MultiSelect({ options, selected, onToggle, placeholder = 'Seleziona…', emptyText, accent = C.primary, label }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const filtered = options.filter((o) => o.toLowerCase().includes(q.toLowerCase()));
+  const lab = (o: string) => (label ? label(o) : o);
+  const filtered = options.filter((o) => lab(o).toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div style={{ position: 'relative' }}>
@@ -28,7 +30,7 @@ export function MultiSelect({ options, selected, onToggle, placeholder = 'Selezi
         ) : (
           selected.map((n) => (
             <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: accent, color: '#fff', borderRadius: 999, padding: '2px 8px', fontSize: 13, fontWeight: 600 }}>
-              {n}
+              {lab(n)}
               <span
                 role="button"
                 onClick={(e) => { e.stopPropagation(); onToggle(n); }}
@@ -52,7 +54,7 @@ export function MultiSelect({ options, selected, onToggle, placeholder = 'Selezi
               return (
                 <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', background: on ? C.primarySoft : 'transparent', fontWeight: on ? 700 : 400 }}>
                   <input type="checkbox" checked={on} onChange={() => onToggle(o)} style={{ width: 18, height: 18, accentColor: accent }} />
-                  {o}
+                  {lab(o)}
                 </label>
               );
             })}

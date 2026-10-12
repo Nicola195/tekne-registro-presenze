@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Operator, Nominativo, Ruolo, RUOLI, newId, nomeCompleto, giorniLavorati } from '../model';
 import { C, S, chip } from '../ui';
 import { IconClose } from './Icons';
+import { MultiSelect } from './MultiSelect';
 
 interface Props {
   initial?: Operator;        // undefined = nuovo operatore
@@ -21,7 +22,6 @@ export function OperatorEditor({ initial, operators, nominativi, onSave, onClose
   const [assoc, setAssoc] = useState<string[]>(() =>
     initial ? nominativi.filter((n) => n.operators.includes(initial.id)).map((n) => n.name) : [],
   );
-  const [filtro, setFiltro] = useState('');
 
   const nameTrim = name.trim();
   const dup = operators.some((o) => o.id !== id && o.name.trim().toLowerCase() === nameTrim.toLowerCase());
@@ -35,9 +35,8 @@ export function OperatorEditor({ initial, operators, nominativi, onSave, onClose
     onSave({ id: id || `op-${newId()}`, name: nameTrim, ruolo, giorni }, assoc);
   };
 
-  const noms = [...nominativi]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .filter((n) => nomeCompleto(n).toLowerCase().includes(filtro.toLowerCase()));
+  const nomiOrdinati = [...nominativi].sort((a, b) => a.name.localeCompare(b.name)).map((n) => n.name);
+  const labelUtenza = (name: string) => nomeCompleto(nominativi.find((n) => n.name === name)) || name;
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(3,71,77,0.45)', zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, overflowY: 'auto' }}>
@@ -78,15 +77,18 @@ export function OperatorEditor({ initial, operators, nominativi, onSave, onClose
         <div style={{ ...S.muted, marginBottom: 8 }}>
           Seleziona le utenze (bambini e ragazzi) seguite da questo operatore. Le ore registrate su utenze non associate risultano <b>extra</b>.
         </div>
-        {nominativi.length > 6 && (
-          <input style={{ ...S.input, marginBottom: 8 }} placeholder="Cerca utenza…" value={filtro} onChange={(e) => setFiltro(e.target.value)} />
+        {nominativi.length === 0 ? (
+          <span style={S.muted}>Nessuna utenza presente. Aggiungile prima nella sezione Utenze.</span>
+        ) : (
+          <MultiSelect
+            options={nomiOrdinati}
+            selected={assoc}
+            onToggle={toggle}
+            label={labelUtenza}
+            placeholder="Seleziona le utenze seguite…"
+            emptyText="Nessuna utenza trovata."
+          />
         )}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {noms.map((n) => (
-            <button key={n.name} style={{ ...chip(assoc.includes(n.name)), padding: '6px 11px', fontSize: 13 }} onClick={() => toggle(n.name)}>{nomeCompleto(n)}</button>
-          ))}
-          {nominativi.length === 0 && <span style={S.muted}>Nessuna utenza presente. Aggiungile prima nella sezione Utenze.</span>}
-        </div>
         {assoc.length > 0 && <div style={{ ...S.muted, marginTop: 8 }}>{assoc.length} {assoc.length === 1 ? 'utenza seguita' : 'utenze seguite'}.</div>}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

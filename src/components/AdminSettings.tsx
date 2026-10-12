@@ -30,7 +30,6 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
   const [subGest, setSubGest] = useState<SubGest>('tariffe');
 
   const totalNom = (n: string) => round2(sessions.filter((s) => s.names.includes(n)).reduce((a, s) => a + s.hours, 0));
-  const totalOp = (id: string) => round2(sessions.filter((s) => s.operatorId === id).reduce((a, s) => a + s.hours, 0));
 
   // ---- Utenze ----
   const [editing, setEditing] = useState<Nominativo | 'new' | null>(null);
@@ -139,7 +138,7 @@ export function AdminSettings({ operators, nominativi, sessions, tariffe, onOper
           <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => setEditingOp(o)}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700 }}>{o.name} <span style={{ ...S.muted, fontWeight: 400 }}>· {o.ruolo}</span></div>
-              <div style={S.muted}>{fmtH(totalOp(o.id))} registrate · {nAssoc} {nAssoc === 1 ? 'utenza seguita' : 'utenze seguite'}</div>
+              <div style={S.muted}>{nAssoc} {nAssoc === 1 ? 'utenza seguita' : 'utenze seguite'}</div>
             </div>
             <button style={{ ...S.btnGhost, padding: '6px 9px' }} onClick={(e) => { e.stopPropagation(); setEditingOp(o); }} title="Scheda"><IconEdit /></button>
             <button style={{ ...S.btnGhost, padding: '6px 9px', color: C.danger }} onClick={(e) => { e.stopPropagation(); removeOp(o); }} title="Rimuovi"><IconTrash /></button>
