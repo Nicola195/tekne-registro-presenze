@@ -44,7 +44,7 @@ export const App = () => {
   const [tab, setTab] = useState<Tab>('riepilogo');
   const [notifOpen, setNotifOpen] = useState(false);
   const notifAuto = useRef(false);
-  const periodInit = useRef(false);
+  const lastDefaultTab = useRef<Tab | null>(null);
 
   const ref = useRef(data);
   ref.current = data;
@@ -85,15 +85,6 @@ export const App = () => {
       if (notifCount > 0) setNotifOpen(true);
     }
   }, [ready, loaded, notifCount]);
-
-  // Default del selettore periodo, impostato una sola volta per sessione dopo il login:
-  // Giorno per l'operatore (per registrare subito), Mese per l'amministrazione (evidenza mensile).
-  useEffect(() => {
-    if (ready && loaded && !periodInit.current) {
-      periodInit.current = true;
-      setPeriod((pp) => ({ ...pp, mode: isAdmin ? 'mese' : 'giorno' }));
-    }
-  }, [ready, loaded, isAdmin]);
 
   // Contesto effettivo: gli operatori sono sempre in modalità "operatore" su sé stessi.
   const effMode: Ctx | null = isAdmin ? mode : 'operatore';
@@ -150,6 +141,17 @@ export const App = () => {
   };
   const tabs = tabsFor();
   const t: Tab = tabs.some(([k]) => k === tab) ? tab : (tabs[0]?.[0] || 'riepilogo');
+
+  // Default del selettore periodo in base alla scheda e al ruolo, applicato quando si entra
+  // in una scheda (le modifiche manuali restano finché si resta sulla stessa scheda):
+  // Operatore → Presenze = Giorno, Riepilogo = Mese; Amministrazione → sempre Mese.
+  useEffect(() => {
+    if (!(ready && loaded)) return;
+    if (lastDefaultTab.current === t) return;
+    lastDefaultTab.current = t;
+    const want: PeriodState['mode'] | null = t === 'giorno' ? (isAdmin ? 'mese' : 'giorno') : t === 'riepilogo' ? 'mese' : null;
+    if (want) setPeriod((pp) => (pp.mode === want ? pp : { ...pp, mode: want }));
+  }, [t, isAdmin, ready, loaded]);
 
   const navBtn = (k: Tab, Icon: (p: IconProps) => React.ReactElement, label: string) => {
     const active = t === k;
